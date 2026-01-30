@@ -42,31 +42,30 @@ jobs:
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           
-          # Create formatted release notes
-          cat > RELEASE_NOTES.md << 'EOF'
-          ┌─────────────────────────────────────────────────────────────────┐
-          │                        RELEASE v${VERSION}                        │
-          └─────────────────────────────────────────────────────────────────┘
+          # Create formatted release notes (GitHub-friendly markdown)
+          cat > RELEASE_NOTES.md << EOF
+          ## What's New in v${VERSION}
           
           EOF
           
           # Extract changelog section for this version
           if [ -f CHANGELOG.md ]; then
-            # Find the section for this version
+            # Find the section for this version and add it
             awk "/^## \\[${VERSION}\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md >> RELEASE_NOTES.md
           fi
           
           # Add installation instructions
           cat >> RELEASE_NOTES.md << 'EOF'
           
-          ┌─────────────────────────────────────────────────────────────────┐
-          │                        INSTALLATION                             │
-          └─────────────────────────────────────────────────────────────────┘
+          ## Installation
           
-          Quick install:
-            curl -fsSL https://raw.githubusercontent.com/Only0neHpLeft/talos/main/install.sh | bash
+          ### Quick Install
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/Only0neHpLeft/talos/main/install.sh | bash
+          ```
           
-          Or download manually from the assets below.
+          ### Manual Download
+          Download the appropriate binary for your Mac from the assets below.
           
           EOF
           
