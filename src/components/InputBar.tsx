@@ -36,6 +36,7 @@ async function fetchLatestVersion(): Promise<string | null> {
 
 export default function InputBar() {
   const [draft, setDraft] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const addMessage = useChatStore((s) => s.addMessage);
   const permissionRequest = useUIStore((s) => s.permissionRequest);
   const isActive = useActivityStore((s) => s.isActive);
@@ -50,6 +51,11 @@ export default function InputBar() {
     return slashCommands.filter((c) => c.name.startsWith(lower));
   }, [draft]);
 
+  // Reset selection when matches change
+  useMemo(() => {
+    setSelectedIndex(0);
+  }, [matches.length]);
+
   // Check if the current draft is a valid (complete) command at the start
   const isValidCommand = useMemo(() => {
     if (!draft.startsWith("/")) return false;
@@ -59,8 +65,20 @@ export default function InputBar() {
 
   useInput((_input, key) => {
     if (isMuted || permissionRequest || modelSelectorVisible) return;
-    if (key.tab && matches.length > 0) {
-      setDraft(matches[0].name);
+    
+    if (matches.length > 0) {
+      if (key.upArrow) {
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : matches.length - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedIndex((prev) => (prev < matches.length - 1 ? prev + 1 : 0));
+        return;
+      }
+      if (key.tab) {
+        setDraft(matches[selectedIndex].name);
+        return;
+      }
     }
   });
 
@@ -125,13 +143,18 @@ export default function InputBar() {
       </Box>
       {matches.length > 0 && draft !== matches[0].name ? (
         <Box paddingLeft={2} marginTop={0} flexDirection="column">
-          {matches.map((cmd) => (
-            <Box key={cmd.name} gap={1}>
-              <Text color={theme.colors.accent}>{cmd.name}</Text>
-              <Text color={theme.colors.dimText}>{cmd.description}</Text>
-              <Text color={theme.colors.muted}> tab</Text>
-            </Box>
-          ))}
+          {matches.map((cmd, idx) => {
+            const isSelected = idx === selectedIndex;
+            return (
+              <Box key={cmd.name} gap={1}>
+                <Text color={isSelected ? theme.colors.success : theme.colors.accent} bold={isSelected}>
+                  {isSelected ? "❯ " : "  "}{cmd.name}
+                </Text>
+                <Text color={theme.colors.dimText}>{cmd.description}</Text>
+                <Text color={theme.colors.muted}>{isSelected ? " tab" : ""}</Text>
+              </Box>
+            );
+          })}
         </Box>
       ) : null}
     </Box>
