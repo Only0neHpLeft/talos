@@ -39,9 +39,19 @@ function getBinaryName(): string | null {
 
 function getExecPath(): string | null {
   // Get the path to the current executable
-  if (process.argv[0].endsWith("talos") || process.argv[0].includes("talos-darwin")) {
-    return process.argv[0];
+  // Check if we're running from a compiled binary (not bun/tsx)
+  const execPath = process.argv[0];
+  
+  // If running as 'talos' command (installed) or direct binary path
+  if (execPath.endsWith("talos") || execPath.includes("talos-darwin") || execPath.includes("/talos")) {
+    return execPath;
   }
+  
+  // Also check if process.execPath contains talos (for compiled binaries)
+  if (process.execPath && (process.execPath.endsWith("talos") || process.execPath.includes("talos-darwin"))) {
+    return process.execPath;
+  }
+  
   return null;
 }
 
@@ -139,8 +149,14 @@ function compareVersions(v1: string, v2: string): number {
   return 0;
 }
 
+function getCheckFilePath(): string {
+  // Use system temp dir - on macOS this is usually /tmp
+  // We use talos-specific filename to avoid conflicts
+  return join(tmpdir(), ".talos-update-check");
+}
+
 async function shouldCheckUpdate(): Promise<boolean> {
-  const lastCheckFile = join(tmpdir(), ".talos-last-update-check");
+  const lastCheckFile = getCheckFilePath();
 
   try {
     const stats = await stat(lastCheckFile);
@@ -152,7 +168,7 @@ async function shouldCheckUpdate(): Promise<boolean> {
 }
 
 async function markUpdateChecked(): Promise<void> {
-  const lastCheckFile = join(tmpdir(), ".talos-last-update-check");
+  const lastCheckFile = getCheckFilePath();
   await writeFile(lastCheckFile, "");
 }
 
@@ -165,13 +181,13 @@ export async function checkAndUpdate(): Promise<boolean> {
   }
 
   // Check if we should check for updates (throttle)
-  if (!(await shouldCheckUpdate())) {
+  const shouldCheck = await shouldCheckUpdate();
+  if (!shouldCheck) {
     return false;
   }
 
   const binaryName = getBinaryName();
   if (!binaryName) {
-    console.error("Unsupported platform/architecture for auto-update");
     return false;
   }
 
@@ -226,7 +242,11 @@ export async function checkAndUpdate(): Promise<boolean> {
       await rename(tmpPath, execPath);
     } catch (err) {
       // Try with sudo if permission denied
-      console.log("🔑 Administrator permission needed for update...");
+      console.log("");
+      console.log("┌─────────────────────────────────────────────────────────┐");
+      console.log("│  🔑  Administrator password needed to install update    │");
+      console.log("└─────────────────────────────────────────────────────────┘");
+      console.log("");
 
       // Restore backup if exists
       if (await fileExists(backupPath)) {
@@ -238,7 +258,7 @@ export async function checkAndUpdate(): Promise<boolean> {
       }
 
       // Use sudo for the move
-      const sudoMv = spawn("sudo", ["mv", tmpPath, execPath], {
+      const sudoMv = spawn("sudo", ["-S", "mv", tmpPath, execPath], {
         stdio: "inherit",
       });
 
@@ -250,7 +270,10 @@ export async function checkAndUpdate(): Promise<boolean> {
       });
 
       // Set permissions
-      spawn("sudo", ["chmod", "+x", execPath]).unref();
+      const sudoChmod = spawn("sudo", ["chmod", "+x", execPath]);
+      await new Promise<void>((resolve) => {
+        sudoChmod.on("close", () => resolve());
+      });
     }
 
     // Clean up backup
@@ -275,7 +298,7 @@ export async function checkAndUpdate(): Promise<boolean> {
     return true; // Update applied, exit current process
   } catch (err) {
     console.error("⚠️  Update check failed:", (err as Error).message);
-    await markUpdateChecked(); // Don't check again immediately
+    // Don't mark as checked on error so we retry next time
     return false;
   }
 }

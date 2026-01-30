@@ -3,7 +3,6 @@
 set -e
 
 REPO="Only0neHpLeft/talos"
-INSTALL_DIR="/usr/local/bin"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -19,7 +18,31 @@ else
     exit 1
 fi
 
+# Use user-local bin to avoid sudo
+USER_BIN="$HOME/.local/bin"
+SYSTEM_BIN="/usr/local/bin"
+
+# Check if talos is already installed in system location
+if [ -f "$SYSTEM_BIN/talos" ]; then
+    INSTALL_DIR="$SYSTEM_BIN"
+    USE_SUDO=true
+else
+    # Prefer user-local installation (no sudo needed)
+    INSTALL_DIR="$USER_BIN"
+    USE_SUDO=false
+    mkdir -p "$INSTALL_DIR"
+fi
+
+# Add to PATH if needed
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    echo "⚠️  $INSTALL_DIR is not in your PATH."
+    echo "   Add this to your ~/.zshrc or ~/.bashrc:"
+    echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo ""
+fi
+
 echo "🚀 Installing talos for macOS $ARCH_NAME..."
+echo "📁 Install location: $INSTALL_DIR"
 
 # Create temp file
 TMP_FILE=$(mktemp)
@@ -43,12 +66,13 @@ fi
 chmod +x "$TMP_FILE"
 
 # Move to install directory
-echo "📦 Installing to $INSTALL_DIR..."
-if [ -w "$INSTALL_DIR" ]; then
-    mv "$TMP_FILE" "$INSTALL_DIR/talos"
-else
-    echo "🔑 Administrator password required to install to $INSTALL_DIR"
+echo "📦 Installing..."
+if [ "$USE_SUDO" = true ]; then
+    echo "🔑 Administrator password required for $INSTALL_DIR"
     sudo mv "$TMP_FILE" "$INSTALL_DIR/talos"
+    sudo chmod +x "$INSTALL_DIR/talos"
+else
+    mv "$TMP_FILE" "$INSTALL_DIR/talos"
 fi
 
 # Verify installation
@@ -57,7 +81,13 @@ if command -v talos &> /dev/null; then
     echo "✅ talos installed successfully!"
     echo ""
     echo "Run 'talos' to start the CLI."
+    echo ""
+    echo "To update in the future, just run: talos"
+    echo "(it will auto-update on startup if a new version is available)"
 else
     echo "⚠️  Installation complete, but 'talos' is not in your PATH."
-    echo "Add $INSTALL_DIR to your PATH or run: $INSTALL_DIR/talos"
+    echo "Add this to your ~/.zshrc or ~/.bashrc:"
+    echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo ""
+    echo "Then run: $INSTALL_DIR/talos"
 fi
