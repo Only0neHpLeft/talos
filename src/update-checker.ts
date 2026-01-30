@@ -122,13 +122,15 @@ async function installPendingUpdate(execPath: string): Promise<boolean> {
     await clearPendingVersion();
     console.log(`✅ Updated to v${pendingVersion}! Restarting...\n`);
     
-    // Relaunch
+    // Relaunch - don't inherit stdio to avoid input conflicts
     const child = spawn(execPath, process.argv.slice(1), {
       detached: true,
-      stdio: "inherit",
+      stdio: "ignore",
     });
     child.unref();
-    return true;
+    
+    // Exit immediately so the new process can take over
+    process.exit(0);
   } catch (err) {
     // Try with sudo
     console.log("");
@@ -155,10 +157,12 @@ async function installPendingUpdate(execPath: string): Promise<boolean> {
       console.log(`✅ Updated to v${pendingVersion}! Restarting...\n`);
       const child = spawn(execPath, process.argv.slice(1), {
         detached: true,
-        stdio: "inherit",
+        stdio: "ignore",
       });
       child.unref();
-      return true;
+      
+      // Exit immediately
+      process.exit(0);
     } catch {
       return false;
     }
