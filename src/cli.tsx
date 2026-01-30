@@ -4,6 +4,7 @@ import Layout from "./components/Layout.js";
 import { useChatStore } from "./store/chat-store.js";
 import { useActivityStore } from "./store/activity-store.js";
 import { useUIStore } from "./store/ui-store.js";
+import { isDevMode } from "./utils/env.js";
 
 const DEMO_RESPONSE = `Here's a simple **TypeScript** function:
 
@@ -38,11 +39,22 @@ Want me to add tests for this function?`;
 const FOLLOW_UP_DENIED = `Understood — I won't create the file. Let me know if you'd like to take a different approach.`;
 
 // Debug logging hook using useStdout (best practice from Context7)
+// Only logs in dev mode - silent in production
 export function useDebugLog() {
   const { write } = useStdout();
+  const devMode = isDevMode();
+  
   return {
-    log: (message: string) => write(`[DEBUG] ${message}\n`),
-    error: (message: string) => write(`[ERROR] ${message}\n`),
+    log: (message: string) => {
+      if (devMode) {
+        write(`[DEBUG] ${message}\n`);
+      }
+    },
+    error: (message: string) => {
+      if (devMode) {
+        write(`[ERROR] ${message}\n`);
+      }
+    },
   };
 }
 
