@@ -3,28 +3,6 @@ import { Box, Text, useInput } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 
-function Button({ label, hotkey, color, isPrimary }: {
-  label: string;
-  hotkey: string;
-  color: string;
-  isPrimary?: boolean;
-}) {
-  return (
-    <Box>
-      <Text 
-        backgroundColor={color} 
-        color={theme.colors.crust}
-        bold={isPrimary}
-      >
-        {" "}{hotkey.toUpperCase()}{" "}
-      </Text>
-      <Text color={theme.colors.text}>
-        {" "}{label}{"  "}
-      </Text>
-    </Box>
-  );
-}
-
 export default function PermissionGate() {
   const { permissionRequest, resolvePermission } = useUIStore();
 
@@ -39,56 +17,37 @@ export default function PermissionGate() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="double"
-      borderColor={theme.colors.warning}
-      paddingX={2}
-      paddingY={1}
+      borderStyle="single"
+      borderColor={theme.colors.border}
+      paddingX={1}
+      paddingY={0}
       marginX={1}
     >
-      {/* Header */}
-      <Box gap={1} marginBottom={1}>
-        <Text color={theme.colors.warning} bold>
-          {theme.glyphs.warning}
-        </Text>
-        <Text color={theme.colors.warning} bold>
-          Permission Required
-        </Text>
-      </Box>
-
-      {/* Separator */}
-      <Box marginBottom={1}>
-        <Text color={theme.colors.border}>
-          {"─".repeat(50)}
-        </Text>
-      </Box>
-
-      {/* Command */}
-      <Box marginBottom={1}>
-        <Text color={theme.colors.dimText}>Command: </Text>
-        <Text color={theme.colors.accent} bold>
+      {/* Title row */}
+      <Box gap={1}>
+        <Text color={theme.colors.muted}>{theme.glyphs.warning}</Text>
+        <Text color={theme.colors.dimText}>Allow</Text>
+        <Text color={theme.colors.text} bold>
           {permissionRequest.command}
         </Text>
+        <Text color={theme.colors.dimText}>?</Text>
       </Box>
 
       {/* Description */}
-      <Box marginBottom={1} flexDirection="column">
-        <Text color={theme.colors.dimText}>Description:</Text>
-        <Text color={theme.colors.text}>
+      <Box marginTop={0}>
+        <Text color={theme.colors.muted}>
           {permissionRequest.description}
         </Text>
       </Box>
 
-      {/* Separator */}
-      <Box marginY={1}>
-        <Text color={theme.colors.border}>
-          {"─".repeat(50)}
-        </Text>
-      </Box>
-
       {/* Actions */}
-      <Box gap={3}>
-        <Button hotkey="Y" label="Allow" color={theme.colors.success} isPrimary />
-        <Button hotkey="N" label="Deny" color={theme.colors.error} />
+      <Box gap={2} marginTop={1}>
+        <Text color={theme.colors.dimText}>
+          [<Text color={theme.colors.success} bold>Y</Text>] yes
+        </Text>
+        <Text color={theme.colors.dimText}>
+          [<Text color={theme.colors.error} bold>N</Text>] no
+        </Text>
       </Box>
     </Box>
   );
