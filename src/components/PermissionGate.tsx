@@ -3,17 +3,24 @@ import { Box, Text, useInput } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 
-function Pill({ label, hotkey, color }: {
+function Button({ label, hotkey, color, isPrimary }: {
   label: string;
   hotkey: string;
   color: string;
+  isPrimary?: boolean;
 }) {
   return (
     <Box>
-      <Text backgroundColor={color} color={theme.colors.surface}>
-        {" "}{hotkey}{" "}
+      <Text 
+        backgroundColor={color} 
+        color={theme.colors.crust}
+        bold={isPrimary}
+      >
+        {" "}{hotkey.toUpperCase()}{" "}
       </Text>
-      <Text color={theme.colors.text}> {label}  </Text>
+      <Text color={theme.colors.text}>
+        {" "}{label}{"  "}
+      </Text>
     </Box>
   );
 }
@@ -32,31 +39,56 @@ export default function PermissionGate() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
+      borderStyle="double"
       borderColor={theme.colors.warning}
       paddingX={2}
       paddingY={1}
       marginX={1}
     >
-      <Box gap={1}>
+      {/* Header */}
+      <Box gap={1} marginBottom={1}>
         <Text color={theme.colors.warning} bold>
-          {theme.glyphs.warning} Permission Required
+          {theme.glyphs.warning}
+        </Text>
+        <Text color={theme.colors.warning} bold>
+          Permission Required
         </Text>
       </Box>
 
-      <Box marginTop={1}>
+      {/* Separator */}
+      <Box marginBottom={1}>
+        <Text color={theme.colors.border}>
+          {"─".repeat(50)}
+        </Text>
+      </Box>
+
+      {/* Command */}
+      <Box marginBottom={1}>
+        <Text color={theme.colors.dimText}>Command: </Text>
         <Text color={theme.colors.accent} bold>
           {permissionRequest.command}
         </Text>
       </Box>
 
-      <Text color={theme.colors.dimText}>
-        {permissionRequest.description}
-      </Text>
+      {/* Description */}
+      <Box marginBottom={1} flexDirection="column">
+        <Text color={theme.colors.dimText}>Description:</Text>
+        <Text color={theme.colors.text}>
+          {permissionRequest.description}
+        </Text>
+      </Box>
 
-      <Box marginTop={1} gap={2}>
-        <Pill hotkey="Y" label="Allow" color={theme.colors.success} />
-        <Pill hotkey="N" label="Deny" color={theme.colors.error} />
+      {/* Separator */}
+      <Box marginY={1}>
+        <Text color={theme.colors.border}>
+          {"─".repeat(50)}
+        </Text>
+      </Box>
+
+      {/* Actions */}
+      <Box gap={3}>
+        <Button hotkey="Y" label="Allow" color={theme.colors.success} isPrimary />
+        <Button hotkey="N" label="Deny" color={theme.colors.error} />
       </Box>
     </Box>
   );
