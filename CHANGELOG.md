@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.30] - 2026-01-31
+
+### Fixed
+- [FIX] Fixed GitHub release notes formatting to use standard markdown
+
+---
+
+## [0.0.29] - 2026-01-31
+
+### Added
+- [FEATURE] Added /changelog command to view latest release notes
+- [FEATURE] Create ChangelogBox component with scroll support
+- [FEATURE] Add changelog-fetcher utility with caching
+
+### Changed
+- [CHANGE] Redesign README.md with fancy box-style menus
+- [CHANGE] Update GitHub workflow for formatted release notes
+
+---
+
 ## [0.0.28] - 2026-01-31
 
 ### Fixed
