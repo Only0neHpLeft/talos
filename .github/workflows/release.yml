@@ -22,15 +22,20 @@ jobs:
       - name: Install dependencies
         run: bun install
       
-      # Build with external flag to avoid react-devtools-core issue
+      - name: Create stub for react-devtools-core
+        run: |
+          mkdir -p node_modules/react-devtools-core
+          echo 'module.exports = {};' > node_modules/react-devtools-core/index.js
+          echo '{"name":"react-devtools-core","main":"index.js"}' > node_modules/react-devtools-core/package.json
+      
       - name: Build ARM64 binary
         run: |
-          bun build ./src/index.tsx --compile --outfile talos-darwin-arm64 --external react-devtools-core
+          bun build ./src/index.tsx --compile --outfile talos-darwin-arm64
           chmod +x talos-darwin-arm64
       
       - name: Build x64 binary
         run: |
-          bun build ./src/index.tsx --compile --outfile talos-darwin-x64 --external react-devtools-core
+          bun build ./src/index.tsx --compile --outfile talos-darwin-x64
           chmod +x talos-darwin-x64
       
       - name: Upload to Release
