@@ -7,6 +7,7 @@ import Throbber from "./Throbber.js";
 import PermissionGate from "./PermissionGate.js";
 import ModelSelector from "./ModelSelector.js";
 import VersionBox from "./VersionBox.js";
+import ChangelogBox from "./ChangelogBox.js";
 import InputBar from "./InputBar.js";
 
 export default function Layout() {
@@ -19,6 +20,7 @@ export default function Layout() {
       <InputBar />
       <ModelSelector />
       <VersionBox />
+      <ChangelogBox />
       <StatusBar />
     </Box>
   );

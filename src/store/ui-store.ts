@@ -27,6 +27,10 @@ interface UIState {
   showVersionBox: () => void;
   hideVersionBox: () => void;
 
+  changelogBoxVisible: boolean;
+  showChangelogBox: () => void;
+  hideChangelogBox: () => void;
+
   reset: () => void;
 }
 
@@ -35,6 +39,7 @@ const initialState = {
   currentModel: availableModels[0],
   modelSelectorVisible: false,
   versionBoxVisible: false,
+  changelogBoxVisible: false,
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -64,6 +69,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   showVersionBox: () => set({ versionBoxVisible: true }),
   hideVersionBox: () => set({ versionBoxVisible: false }),
+
+  showChangelogBox: () => set({ changelogBoxVisible: true }),
+  hideChangelogBox: () => set({ changelogBoxVisible: false }),
 
   reset: () => set({ ...initialState }),
 }));

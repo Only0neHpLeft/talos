@@ -37,6 +37,42 @@ jobs:
         run: |
           echo 'export const VERSION = "${{ steps.get_version.outputs.VERSION }}";' > src/version.ts
       
+      - name: Generate Release Notes
+        id: generate_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          # Create formatted release notes
+          cat > RELEASE_NOTES.md << 'EOF'
+          ┌─────────────────────────────────────────────────────────────────┐
+          │                        RELEASE v${VERSION}                        │
+          └─────────────────────────────────────────────────────────────────┘
+          
+          EOF
+          
+          # Extract changelog section for this version
+          if [ -f CHANGELOG.md ]; then
+            # Find the section for this version
+            awk "/^## \\[${VERSION}\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md >> RELEASE_NOTES.md
+          fi
+          
+          # Add installation instructions
+          cat >> RELEASE_NOTES.md << 'EOF'
+          
+          ┌─────────────────────────────────────────────────────────────────┐
+          │                        INSTALLATION                             │
+          └─────────────────────────────────────────────────────────────────┘
+          
+          Quick install:
+            curl -fsSL https://raw.githubusercontent.com/Only0neHpLeft/talos/main/install.sh | bash
+          
+          Or download manually from the assets below.
+          
+          EOF
+          
+          # Set output for release step
+          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+      
       - name: Install dependencies
         run: bun install
       
@@ -62,5 +98,6 @@ jobs:
           files: |
             talos-darwin-arm64
             talos-darwin-x64
+          body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -14,6 +14,7 @@ interface SlashCommand {
 const slashCommands: SlashCommand[] = [
   { name: "/model", description: "Switch model" },
   { name: "/version", description: "Show version info" },
+  { name: "/changelog", description: "Show latest release notes" },
 ];
 
 export default function InputBar() {
@@ -24,8 +25,10 @@ export default function InputBar() {
   const isActive = useActivityStore((s) => s.isActive);
   const modelSelectorVisible = useUIStore((s) => s.modelSelectorVisible);
   const versionBoxVisible = useUIStore((s) => s.versionBoxVisible);
+  const changelogBoxVisible = useUIStore((s) => s.changelogBoxVisible);
   const showModelSelector = useUIStore((s) => s.showModelSelector);
   const showVersionBox = useUIStore((s) => s.showVersionBox);
+  const showChangelogBox = useUIStore((s) => s.showChangelogBox);
 
   const isMuted = isActive;
 
@@ -48,7 +51,7 @@ export default function InputBar() {
   }, [draft]);
 
   useInput((_input, key) => {
-    if (isMuted || permissionRequest || modelSelectorVisible || versionBoxVisible) return;
+    if (isMuted || permissionRequest || modelSelectorVisible || versionBoxVisible || changelogBoxVisible) return;
     
     if (matches.length > 0) {
       if (key.upArrow) {
@@ -82,11 +85,17 @@ export default function InputBar() {
       return;
     }
 
+    if (trimmed === "/changelog") {
+      showChangelogBox();
+      setDraft("");
+      return;
+    }
+
     addMessage("user", trimmed);
     setDraft("");
   };
 
-  if (permissionRequest || modelSelectorVisible || versionBoxVisible) return null;
+  if (permissionRequest || modelSelectorVisible || versionBoxVisible || changelogBoxVisible) return null;
 
   return (
     <Box flexDirection="column" paddingX={1} paddingTop={1}>
