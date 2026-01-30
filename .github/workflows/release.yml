@@ -19,6 +19,14 @@ jobs:
         with:
           bun-version: latest
       
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Update version in source
+        run: |
+          echo 'export const VERSION = "${{ steps.get_version.outputs.VERSION }}";' > src/version.ts
+      
       - name: Install dependencies
         run: bun install
       

@@ -27,8 +27,20 @@ sudo mv talos /usr/local/bin/
 ## Usage
 
 ```bash
-talos
+talos                    # Start with auto-update check
+talos --no-update        # Skip update check
+talos --version          # Show version
+talos --help             # Show help
 ```
+
+### Auto-Update
+
+Talos automatically checks for updates when you start it (once per hour). If a new version is available, it will:
+1. Download the latest version
+2. Install it (may ask for your password)
+3. Restart with the new version
+
+To skip the update check, use `--no-update`.
 
 ## Development
 
@@ -53,9 +65,17 @@ bun run compile
 To create a new release:
 
 ```bash
-# Tag a new version
-git tag v1.0.1
-git push origin v1.0.1
+# Update version in src/version.ts first!
+echo 'export const VERSION = "0.0.3";' > src/version.ts
+
+# Commit and push
+git add .
+git commit -m "Bump version to 0.0.3"
+git push
+
+# Tag a new version (the workflow extracts version from tag)
+git tag v0.0.3
+git push origin v0.0.3
 
 # GitHub Actions will automatically build and release
 ```

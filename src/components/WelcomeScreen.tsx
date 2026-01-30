@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
+import { VERSION } from "../version.js";
 
 export default function WelcomeScreen() {
   const currentModel = useUIStore((s) => s.currentModel);
@@ -19,7 +20,7 @@ export default function WelcomeScreen() {
         <Text color={theme.colors.primary} bold>
           {theme.glyphs.app} talos
         </Text>
-        <Text color={theme.colors.dimText}>v0.0.1</Text>
+        <Text color={theme.colors.dimText}>v{VERSION}</Text>
       </Box>
       <Box gap={1}>
         <Text color={theme.colors.muted}>model:</Text>

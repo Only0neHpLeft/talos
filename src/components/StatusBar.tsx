@@ -5,6 +5,7 @@ import { useChatStore } from "../store/chat-store.js";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 import path from "path";
+import { VERSION } from "../version.js";
 
 export default function StatusBar() {
   const [branch, setBranch] = useState("");
@@ -43,7 +44,7 @@ export default function StatusBar() {
         {" "}{theme.glyphs.vertSep}{" "}
       </Text>
       <Text color={theme.colors.dimText}>
-        v0.0.1
+        v{VERSION}
       </Text>
     </Box>
   );
