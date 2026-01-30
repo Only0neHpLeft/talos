@@ -3,18 +3,19 @@ import { Box, Text, useInput } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 import MinimalBox from "./MinimalBox.js";
+import { VERSION } from "../version.js";
 import {
-  fetchLatestChangelog,
-  formatReleaseBody,
-  formatReleaseDate,
+  fetchChangelog,
+  formatCommitMessage,
+  formatDate,
   getChangelogErrorMessage,
-  type ReleaseInfo,
+  type ChangelogInfo,
 } from "../utils/changelog-fetcher.js";
 
 export default function ChangelogBox() {
   const { changelogBoxVisible, hideChangelogBox } = useUIStore();
-  const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [formattedBody, setFormattedBody] = useState<string[]>([]);
+  const [changelog, setChangelog] = useState<ChangelogInfo | null>(null);
+  const [formattedLines, setFormattedLines] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -25,17 +26,17 @@ export default function ChangelogBox() {
       setError(null);
       setScrollOffset(0);
 
-      fetchLatestChangelog()
+      fetchChangelog(VERSION)
         .then((result) => {
-          if (result.release) {
-            setRelease(result.release);
-            setFormattedBody(formatReleaseBody(result.release.body));
+          if (result.changelog) {
+            setChangelog(result.changelog);
+            setFormattedLines(formatCommitMessage(result.changelog.commitMessage));
           }
           if (result.error !== "none") {
             setError(getChangelogErrorMessage(result.error));
           }
         })
-        .catch((err) => {
+        .catch((err: Error) => {
           setError("Failed to fetch changelog");
           console.error("Changelog fetch failed:", err);
         })
@@ -54,7 +55,7 @@ export default function ChangelogBox() {
       setScrollOffset((prev) => Math.max(0, prev - 1));
     } else if (key.downArrow) {
       setScrollOffset((prev) =>
-        Math.min(Math.max(0, formattedBody.length - 10), prev + 1)
+        Math.min(Math.max(0, formattedLines.length - 10), prev + 1)
       );
     } else if (key.return) {
       hideChangelogBox();
@@ -65,31 +66,35 @@ export default function ChangelogBox() {
 
   // Calculate visible lines (show max 10 lines at a time)
   const maxVisibleLines = 10;
-  const visibleLines = formattedBody.slice(
+  const visibleLines = formattedLines.slice(
     scrollOffset,
     scrollOffset + maxVisibleLines
   );
   const canScrollUp = scrollOffset > 0;
-  const canScrollDown = scrollOffset + maxVisibleLines < formattedBody.length;
+  const canScrollDown = scrollOffset + maxVisibleLines < formattedLines.length;
 
   return (
     <MinimalBox>
       {/* Header */}
       <Box flexDirection="column" marginBottom={1}>
         <Text bold color={theme.colors.text}>
-          LATEST RELEASE
+          CHANGELOG
         </Text>
-        {release && (
+        {changelog && (
           <Box flexDirection="column" marginTop={1}>
             <Box gap={1}>
               <Text color={theme.colors.dimText}>Version:</Text>
-              <Text color={theme.colors.text}>v{release.version}</Text>
+              <Text color={theme.colors.text}>v{changelog.version}</Text>
             </Box>
             <Box gap={1}>
               <Text color={theme.colors.dimText}>Date:</Text>
               <Text color={theme.colors.text}>
-                {formatReleaseDate(release.publishedAt)}
+                {formatDate(changelog.date)}
               </Text>
+            </Box>
+            <Box gap={1}>
+              <Text color={theme.colors.dimText}>Author:</Text>
+              <Text color={theme.colors.text}>{changelog.author}</Text>
             </Box>
           </Box>
         )}
@@ -108,7 +113,7 @@ export default function ChangelogBox() {
             </Text>
           ))
         ) : (
-          <Text color={theme.colors.muted}>No release notes available.</Text>
+          <Text color={theme.colors.muted}>No changelog available.</Text>
         )}
       </Box>
 

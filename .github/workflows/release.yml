@@ -37,41 +37,6 @@ jobs:
         run: |
           echo 'export const VERSION = "${{ steps.get_version.outputs.VERSION }}";' > src/version.ts
       
-      - name: Generate Release Notes
-        id: generate_notes
-        run: |
-          VERSION="${{ steps.get_version.outputs.VERSION }}"
-          
-          # Create formatted release notes (GitHub-friendly markdown)
-          cat > RELEASE_NOTES.md << EOF
-          ## What's New in v${VERSION}
-          
-          EOF
-          
-          # Extract changelog section for this version
-          if [ -f CHANGELOG.md ]; then
-            # Find the section for this version and add it
-            awk "/^## \\[${VERSION}\]/{flag=1;next}/^## \\[/{flag=0}flag" CHANGELOG.md >> RELEASE_NOTES.md
-          fi
-          
-          # Add installation instructions
-          cat >> RELEASE_NOTES.md << 'EOF'
-          
-          ## Installation
-          
-          ### Quick Install
-          ```bash
-          curl -fsSL https://raw.githubusercontent.com/Only0neHpLeft/talos/main/install.sh | bash
-          ```
-          
-          ### Manual Download
-          Download the appropriate binary for your Mac from the assets below.
-          
-          EOF
-          
-          # Set output for release step
-          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
-      
       - name: Install dependencies
         run: bun install
       
@@ -97,6 +62,5 @@ jobs:
           files: |
             talos-darwin-arm64
             talos-darwin-x64
-          body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
