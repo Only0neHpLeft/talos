@@ -1,0 +1,30 @@
+{
+  "name": "talos",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/diff": "^8.0.0",
+    "@types/react": "^19.2.10",
+    "tsx": "^4.21.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "diff": "^8.0.3",
+    "ink": "^6.6.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "marked": "^17.0.1",
+    "marked-terminal": "^7.3.0",
+    "react": "^19.2.4",
+    "zustand": "^5.0.10"
+  }
+}
