@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
+import * as https from "https";
+import { IncomingMessage } from "http";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 import MinimalBox from "./MinimalBox.js";
@@ -9,17 +11,48 @@ interface ReleaseInfo {
   tag_name: string;
 }
 
-async function fetchLatestVersion(): Promise<string | null> {
-  try {
-    const res = await fetch("https://api.github.com/repos/Only0neHpLeft/talos/releases/latest", {
-      headers: { "User-Agent": "talos" },
+function fetchLatestVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const req = https.get(
+      "https://api.github.com/repos/Only0neHpLeft/talos/releases/latest",
+      { headers: { "User-Agent": "talos", Accept: "application/vnd.github+json" } },
+      (res: IncomingMessage) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          const location = res.headers.location;
+          if (location) {
+            https.get(location, { headers: { "User-Agent": "talos" } }, (redirectRes) => {
+              handleResponse(redirectRes, resolve);
+            }).on("error", () => resolve(null));
+            return;
+          }
+        }
+        handleResponse(res, resolve);
+      }
+    );
+    req.on("error", () => resolve(null));
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve(null);
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as ReleaseInfo;
-    return data.tag_name;
-  } catch {
-    return null;
+  });
+}
+
+function handleResponse(res: IncomingMessage, resolve: (value: string | null) => void): void {
+  if (res.statusCode !== 200) {
+    resolve(null);
+    return;
   }
+
+  let data = "";
+  res.on("data", (chunk: Buffer) => (data += chunk.toString()));
+  res.on("end", () => {
+    try {
+      const json = JSON.parse(data) as ReleaseInfo;
+      resolve(json.tag_name);
+    } catch {
+      resolve(null);
+    }
+  });
 }
 
 export default function VersionBox() {

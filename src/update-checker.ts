@@ -1,10 +1,58 @@
 import { spawn } from "child_process";
 import { access, chmod, mkdir, rename, writeFile } from "fs/promises";
+import * as https from "https";
+import { IncomingMessage } from "http";
 import { homedir } from "os";
 import { join } from "path";
 import { VERSION as CURRENT_VERSION } from "./version.js";
 
 const REPO = "Only0neHpLeft/talos";
+
+interface ReleaseInfo {
+  tag_name: string;
+  assets: Array<{
+    name: string;
+    browser_download_url: string;
+  }>;
+}
+
+function fetchJson<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      { headers: { "User-Agent": "talos-updater", Accept: "application/vnd.github+json" } },
+      (res: IncomingMessage) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          const location = res.headers.location;
+          if (location) {
+            fetchJson<T>(location).then(resolve).catch(reject);
+            return;
+          }
+        }
+
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+
+        let data = "";
+        res.on("data", (chunk: Buffer) => (data += chunk.toString()));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.setTimeout(10000, () => {
+      req.destroy();
+      reject(new Error("Request timeout"));
+    });
+  });
+}
 
 // Get config directory for talos
 function getConfigDir(): string {
@@ -241,14 +289,10 @@ export async function checkAndUpdate(): Promise<boolean> {
 
   // Check for new updates online (non-blocking)
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/${REPO}/releases/latest`,
-      { headers: { "User-Agent": "talos", Accept: "application/vnd.github+json" } }
+    const release = await fetchJson<ReleaseInfo>(
+      `https://api.github.com/repos/${REPO}/releases/latest`
     );
 
-    if (!response.ok) return false;
-
-    const release = await response.json();
     const latestVersion = release.tag_name;
 
     if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
@@ -257,7 +301,7 @@ export async function checkAndUpdate(): Promise<boolean> {
 
     console.log(`⬆️  Update available: ${CURRENT_VERSION} → ${latestVersion}`);
 
-    const asset = release.assets.find((a: { name: string }) => a.name === binaryName);
+    const asset = release.assets.find((a) => a.name === binaryName);
     if (!asset) {
       console.error("❌ Could not find update for your platform");
       return false;
