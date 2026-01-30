@@ -156,22 +156,22 @@ export async function checkAndUpdate(): Promise<boolean> {
     return false;
   }
 
-  console.log("🔍 Checking for updates...");
+  console.log("[CHECK] Checking for updates...");
 
   // Get latest version
   const latestVersion = await fetchLatestVersion();
   if (!latestVersion) {
-    console.log("⚠️  Could not check for updates");
+    console.log("[WARN] Could not check for updates");
     return false;
   }
 
   // Check if update is needed
   if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
-    console.log(`✅ Already on latest version (${CURRENT_VERSION})`);
+    console.log(`[OK] Already on latest version (${CURRENT_VERSION})`);
     return false;
   }
 
-  console.log(`⬆️  Update available: ${CURRENT_VERSION} → ${latestVersion}`);
+  console.log(`[UPDATE] Update available: ${CURRENT_VERSION} → ${latestVersion}`);
   console.log("");
 
   // Construct download URL
@@ -180,34 +180,34 @@ export async function checkAndUpdate(): Promise<boolean> {
   await ensureTempDir();
   const tempPath = join(getTempDir(), `talos-update-${Date.now()}.new`);
 
-  console.log(`📥 Downloading ${binaryName}...`);
+  console.log(`[DOWNLOAD] Downloading ${binaryName}...`);
   
   // Download the new version
   const downloaded = await downloadWithCurl(downloadUrl, tempPath);
   if (!downloaded) {
-    console.error("❌ Download failed");
+    console.error("[ERROR] Download failed");
     await cleanupTempFile(tempPath);
     return false;
   }
 
-  console.log("📦 Download complete!");
+  console.log("[OK] Download complete!");
   console.log("");
 
   // Make it executable
   await chmod(tempPath, 0o755);
 
   // Install the update
-  console.log("🔄 Installing update...");
+  console.log("[INSTALL] Installing update...");
   
   try {
     // Try direct replacement
     await rename(tempPath, execPath);
-    console.log("✅ Update installed!");
+    console.log("[OK] Update installed!");
   } catch (err) {
     // Need sudo - try with password prompt
     console.log("");
     console.log("┌─────────────────────────────────────────────────────────┐");
-    console.log("│  🔑  Administrator password needed to install update    │");
+    console.log("│  [KEY] Administrator password needed to install update  │");
     console.log("└─────────────────────────────────────────────────────────┘");
     console.log("");
 
@@ -235,16 +235,16 @@ export async function checkAndUpdate(): Promise<boolean> {
         sudoChmod.on("error", () => resolve());
       });
 
-      console.log("✅ Update installed!");
+    console.log("[OK] Update installed!");
     } catch {
-      console.error("❌ Installation failed");
+      console.error("[ERROR] Installation failed");
       await cleanupTempFile(tempPath);
       return false;
     }
   }
 
   console.log("");
-  console.log(`🚀 Starting talos ${latestVersion}...`);
+  console.log(`[START] Starting talos ${latestVersion}...`);
   console.log("");
 
   // Relaunch the app with graceful cleanup
