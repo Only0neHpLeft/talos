@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useChatStore } from "../store/chat-store.js";
@@ -36,7 +36,7 @@ export default function InputBar() {
   }, [draft]);
 
   // Reset selection when matches change
-  useMemo(() => {
+  React.useEffect(() => {
     setSelectedIndex(0);
   }, [matches.length]);
 
