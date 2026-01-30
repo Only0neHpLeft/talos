@@ -12,9 +12,11 @@ interface MessageBubbleProps {
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
-  const roleGlyph = isUser ? theme.glyphs.user : theme.glyphs.assistant;
-  const roleColor = isUser ? theme.colors.secondary : theme.colors.primary;
-  const roleLabel = isUser ? "You" : "Talos";
+  const isSystem = message.role === "system";
+  
+  const roleGlyph = isUser ? theme.glyphs.user : isSystem ? "◈" : theme.glyphs.assistant;
+  const roleColor = isUser ? theme.colors.secondary : isSystem ? theme.colors.warning : theme.colors.primary;
+  const roleLabel = isUser ? "You" : isSystem ? "System" : "Talos";
 
   return (
     <Box flexDirection="column" paddingX={1}>
