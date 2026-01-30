@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
@@ -6,6 +6,11 @@ import { VERSION } from "../version.js";
 
 export default function WelcomeScreen() {
   const currentModel = useUIStore((s) => s.currentModel);
+  const [cwd, setCwd] = useState("");
+
+  useEffect(() => {
+    setCwd(process.cwd());
+  }, []);
 
   return (
     <Box
@@ -28,7 +33,7 @@ export default function WelcomeScreen() {
       </Box>
       <Box gap={1}>
         <Text color={theme.colors.muted}>cwd:</Text>
-        <Text color={theme.colors.text}>{process.cwd()}</Text>
+        <Text color={theme.colors.text}>{cwd}</Text>
       </Box>
     </Box>
   );

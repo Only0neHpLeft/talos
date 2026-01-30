@@ -1,7 +1,8 @@
-import { spawn, execSync } from "child_process";
-import { access, rename, chmod, mkdir } from "fs/promises";
+import { spawn } from "child_process";
+import { access, rename, chmod, mkdir, unlink, realpath } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
+import * as https from "https";
 import { VERSION as CURRENT_VERSION } from "./version.js";
 
 const REPO = "Only0neHpLeft/talos";
@@ -20,23 +21,25 @@ function getBinaryName(): string | null {
 }
 
 // Get the path to the current executable
-function getExecPath(): string | null {
-  const execPath = process.argv[0];
-
-  if (
-    execPath.endsWith("talos") ||
-    execPath.includes("talos-darwin") ||
-    execPath.includes("/talos")
-  ) {
-    return execPath;
-  }
-
-  if (
-    process.execPath &&
-    (process.execPath.endsWith("talos") ||
-      process.execPath.includes("talos-darwin"))
-  ) {
-    return process.execPath;
+async function getExecPath(): Promise<string | null> {
+  try {
+    const resolved = await realpath(process.argv[0]);
+    if (
+      resolved.endsWith("talos") ||
+      resolved.includes("talos-darwin") ||
+      resolved.includes("/talos")
+    ) {
+      return resolved;
+    }
+  } catch {
+    // Fallback to process.execPath
+    if (
+      process.execPath &&
+      (process.execPath.endsWith("talos") ||
+        process.execPath.includes("talos-darwin"))
+    ) {
+      return process.execPath;
+    }
   }
 
   return null;
@@ -74,20 +77,25 @@ function getTempDir(): string {
 async function ensureTempDir(): Promise<void> {
   try {
     await mkdir(getTempDir(), { recursive: true });
-  } catch {
-    // ignore
+  } catch (err) {
+    console.debug("Temp dir creation (may already exist):", err);
   }
 }
 
 // Fetch latest version from GitHub redirect (100% reliable, no rate limits)
 async function fetchLatestVersion(): Promise<string | null> {
   return new Promise((resolve) => {
-    const https = require("https");
-    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      resolve(null);
+    }, 10000);
+
     const req = https.get(
       `https://github.com/${REPO}/releases/latest`,
-      { method: "HEAD" },
-      (res: any) => {
+      { method: "HEAD", signal: controller.signal as any },
+      (res) => {
+        clearTimeout(timeout);
         // GitHub redirects /latest to /tag/vX.Y.Z
         if (res.statusCode === 302 || res.statusCode === 301) {
           const location = res.headers.location;
@@ -103,9 +111,8 @@ async function fetchLatestVersion(): Promise<string | null> {
       }
     );
 
-    req.on("error", () => resolve(null));
-    req.setTimeout(10000, () => {
-      req.destroy();
+    req.on("error", () => {
+      clearTimeout(timeout);
       resolve(null);
     });
   });
@@ -128,9 +135,18 @@ async function downloadWithCurl(url: string, outputPath: string): Promise<boolea
   });
 }
 
+// Cleanup function for temp files
+async function cleanupTempFile(tempPath: string): Promise<void> {
+  try {
+    await unlink(tempPath);
+  } catch {
+    // File might not exist, ignore
+  }
+}
+
 // Main update check and install function
 export async function checkAndUpdate(): Promise<boolean> {
-  const execPath = getExecPath();
+  const execPath = await getExecPath();
   if (!execPath) {
     return false;
   }
@@ -170,10 +186,7 @@ export async function checkAndUpdate(): Promise<boolean> {
   const downloaded = await downloadWithCurl(downloadUrl, tempPath);
   if (!downloaded) {
     console.error("❌ Download failed");
-    // Clean up temp file
-    try {
-      await Bun.file(tempPath).delete();
-    } catch {}
+    await cleanupTempFile(tempPath);
     return false;
   }
 
@@ -199,16 +212,33 @@ export async function checkAndUpdate(): Promise<boolean> {
     console.log("");
 
     try {
-      // Use sudo to move the file
-      execSync(`sudo mv "${tempPath}" "${execPath}"`, { stdio: "inherit" });
-      execSync(`sudo chmod +x "${execPath}"`, { stdio: "ignore" });
+      // Use sudo with spawn (safe from injection)
+      const sudoMv = spawn("sudo", ["mv", tempPath, execPath], {
+        stdio: "inherit",
+      });
+
+      const mvSuccess = await new Promise<boolean>((resolve) => {
+        sudoMv.on("close", (code) => resolve(code === 0));
+        sudoMv.on("error", () => resolve(false));
+      });
+
+      if (!mvSuccess) {
+        throw new Error("sudo mv failed");
+      }
+
+      const sudoChmod = spawn("sudo", ["chmod", "+x", execPath], {
+        stdio: "ignore",
+      });
+
+      await new Promise<void>((resolve) => {
+        sudoChmod.on("close", () => resolve());
+        sudoChmod.on("error", () => resolve());
+      });
+
       console.log("✅ Update installed!");
     } catch {
       console.error("❌ Installation failed");
-      // Clean up
-      try {
-        await Bun.file(tempPath).delete();
-      } catch {}
+      await cleanupTempFile(tempPath);
       return false;
     }
   }
@@ -217,7 +247,18 @@ export async function checkAndUpdate(): Promise<boolean> {
   console.log(`🚀 Starting talos ${latestVersion}...`);
   console.log("");
 
-  // Relaunch the app
+  // Relaunch the app with graceful cleanup
+  await gracefulRelaunch(execPath);
+  return true;
+}
+
+// Graceful relaunch with proper cleanup
+async function gracefulRelaunch(execPath: string): Promise<never> {
+  // Flush any pending output
+  if (process.stdout.write("")) {
+    await new Promise((resolve) => process.stdout.once("drain", resolve));
+  }
+
   const child = spawn(execPath, process.argv.slice(1), {
     detached: true,
     stdio: "ignore",

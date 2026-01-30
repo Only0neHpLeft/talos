@@ -8,6 +8,7 @@ interface ActivityState {
   startedAt: number;
   start: (text: string, category?: ActivityCategory) => void;
   stop: () => void;
+  reset: () => void;
 }
 
 export const useActivityStore = create<ActivityState>((set) => ({
@@ -18,5 +19,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
   start: (text, category = "thinking") =>
     set({ isActive: true, statusText: text, category, startedAt: Date.now() }),
   stop: () =>
+    set({ isActive: false, statusText: "", category: "thinking", startedAt: 0 }),
+  reset: () =>
     set({ isActive: false, statusText: "", category: "thinking", startedAt: 0 }),
 }));

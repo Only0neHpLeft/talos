@@ -26,10 +26,20 @@ interface UIState {
   versionBoxVisible: boolean;
   showVersionBox: () => void;
   hideVersionBox: () => void;
+
+  reset: () => void;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
+const initialState = {
   permissionRequest: null,
+  currentModel: availableModels[0],
+  modelSelectorVisible: false,
+  versionBoxVisible: false,
+};
+
+export const useUIStore = create<UIState>((set, get) => ({
+  ...initialState,
+  
   requestPermission: (request) =>
     set({
       permissionRequest: {
@@ -48,13 +58,12 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ permissionRequest: null });
   },
 
-  currentModel: availableModels[0],
-  modelSelectorVisible: false,
   setModel: (model) => set({ currentModel: model }),
   showModelSelector: () => set({ modelSelectorVisible: true }),
   hideModelSelector: () => set({ modelSelectorVisible: false }),
 
-  versionBoxVisible: false,
   showVersionBox: () => set({ versionBoxVisible: true }),
   hideVersionBox: () => set({ versionBoxVisible: false }),
+
+  reset: () => set({ ...initialState }),
 }));

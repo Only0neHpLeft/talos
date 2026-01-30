@@ -19,13 +19,21 @@ export default function VersionBox() {
     if (versionBoxVisible) {
       setIsChecking(true);
       setError(null);
-      fetchLatestVersion().then((result) => {
-        setLatestVersion(result.version);
-        if (result.error !== "none") {
-          setError(getVersionErrorMessage(result.error));
-        }
-        setIsChecking(false);
-      });
+      
+      fetchLatestVersion()
+        .then((result) => {
+          setLatestVersion(result.version);
+          if (result.error !== "none") {
+            setError(getVersionErrorMessage(result.error));
+          }
+        })
+        .catch((err) => {
+          setError("Failed to check version");
+          console.error("Version check failed:", err);
+        })
+        .finally(() => {
+          setIsChecking(false);
+        });
     }
   }, [versionBoxVisible]);
 

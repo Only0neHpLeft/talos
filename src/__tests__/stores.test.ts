@@ -5,19 +5,9 @@ import { useUIStore, availableModels } from "../store/ui-store.js";
 
 // Helper to reset stores between tests
 const resetStores = () => {
-  useChatStore.setState({ messages: [], totalTokens: 0 });
-  useActivityStore.setState({ 
-    isActive: false, 
-    statusText: "", 
-    category: "thinking", 
-    startedAt: 0 
-  });
-  useUIStore.setState({
-    permissionRequest: null,
-    modelSelectorVisible: false,
-    versionBoxVisible: false,
-    currentModel: availableModels[0],
-  });
+  useChatStore.getState().reset();
+  useActivityStore.getState().reset();
+  useUIStore.getState().reset();
 };
 
 describe("Chat Store Tests", () => {

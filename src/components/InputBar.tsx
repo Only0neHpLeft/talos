@@ -36,7 +36,7 @@ export default function InputBar() {
   }, [draft]);
 
   // Reset selection when matches change
-  React.useEffect(() => {
+  useEffect(() => {
     setSelectedIndex(0);
   }, [matches.length]);
 

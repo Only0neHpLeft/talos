@@ -1,6 +1,6 @@
 {
   "name": "talos",
-  "version": "0.0.1",
+  "version": "0.0.23",
   "module": "src/index.tsx",
   "type": "module",
   "bin": {

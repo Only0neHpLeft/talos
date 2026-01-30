@@ -43,50 +43,84 @@ export default function App() {
   const { requestPermission } = useUIStore();
   const lastCount = useRef(0);
 
+  // Cleanup on unmount - reset stores
+  useEffect(() => {
+    return () => {
+      useChatStore.setState({ messages: [], totalTokens: 0 });
+      useActivityStore.setState({ isActive: false, statusText: "", category: "thinking", startedAt: 0 });
+      useUIStore.setState({ permissionRequest: null, modelSelectorVisible: false, versionBoxVisible: false });
+    };
+  }, []);
+
+  // Demo effect with async/await pattern
   useEffect(() => {
     const count = messages.length;
-    if (count > lastCount.current) {
-      const latest = messages[count - 1];
-      lastCount.current = count;
+    if (count <= lastCount.current) return;
+    
+    const latest = messages[count - 1];
+    lastCount.current = count;
 
-      if (latest.role === "user") {
-        start("Thinking...", "thinking");
+    if (latest.role !== "user") return;
 
-        const timer = setTimeout(() => {
-          start("Reading project files...", "reading");
+    const abortController = new AbortController();
 
-          const readTimer = setTimeout(() => {
+    async function runDemo() {
+      start("Thinking...", "thinking");
+      
+      await delay(2000, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      start("Reading project files...", "reading");
+      
+      await delay(1000, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      stop();
+      addMessage("assistant", DEMO_RESPONSE, DEMO_DIFF);
+
+      await delay(1500, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      requestPermission({
+        command: "Write file: src/hello.ts",
+        description:
+          "The assistant wants to create a new file with the greeting function.",
+        onAllow: () => {
+          start("Writing src/hello.ts...", "writing");
+          setTimeout(() => {
             stop();
-            addMessage("assistant", DEMO_RESPONSE, DEMO_DIFF);
-
-            const permTimer = setTimeout(() => {
-              requestPermission({
-                command: "Write file: src/hello.ts",
-                description:
-                  "The assistant wants to create a new file with the greeting function.",
-                onAllow: () => {
-                  start("Writing src/hello.ts...", "writing");
-                  setTimeout(() => {
-                    stop();
-                    addMessage("assistant", FOLLOW_UP_ALLOWED);
-                  }, 1000);
-                },
-                onDeny: () => {
-                  addMessage("assistant", FOLLOW_UP_DENIED);
-                },
-              });
-            }, 1500);
-
-            return () => clearTimeout(permTimer);
+            addMessage("assistant", FOLLOW_UP_ALLOWED);
           }, 1000);
-
-          return () => clearTimeout(readTimer);
-        }, 2000);
-
-        return () => clearTimeout(timer);
-      }
+        },
+        onDeny: () => {
+          addMessage("assistant", FOLLOW_UP_DENIED);
+        },
+      });
     }
+
+    runDemo();
+
+    return () => {
+      abortController.abort();
+    };
   }, [messages, addMessage, start, stop, requestPermission]);
 
   return <Layout />;
+}
+
+// Helper function for delays with abort support
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+
+    const timeout = setTimeout(() => resolve(), ms);
+    
+    signal.addEventListener("abort", () => {
+      clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
 }

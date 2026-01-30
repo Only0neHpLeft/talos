@@ -1,10 +1,9 @@
-import React from "react";
-import { render, useApp, useInput, useStdout, Box, Text } from "ink";
+import React, { useEffect, useRef } from "react";
+import { render, useApp, useInput, Box, Text } from "ink";
 import Layout from "./components/Layout.js";
 import { useChatStore } from "./store/chat-store.js";
 import { useActivityStore } from "./store/activity-store.js";
 import { useUIStore } from "./store/ui-store.js";
-import { isDevMode } from "./utils/env.js";
 
 const DEMO_RESPONSE = `Here's a simple **TypeScript** function:
 
@@ -38,95 +37,101 @@ Want me to add tests for this function?`;
 
 const FOLLOW_UP_DENIED = `Understood — I won't create the file. Let me know if you'd like to take a different approach.`;
 
-// Debug logging hook using useStdout (best practice from Context7)
-// Only logs in dev mode - silent in production
-export function useDebugLog() {
-  const { write } = useStdout();
-  const devMode = isDevMode();
-  
-  return {
-    log: (message: string) => {
-      if (devMode) {
-        write(`[DEBUG] ${message}\n`);
-      }
-    },
-    error: (message: string) => {
-      if (devMode) {
-        write(`[ERROR] ${message}\n`);
-      }
-    },
-  };
-}
-
 function App() {
   const { exit } = useApp();
-  const { log } = useDebugLog();
   const messages = useChatStore((s) => s.messages);
   const addMessage = useChatStore((s) => s.addMessage);
   const { start, stop } = useActivityStore();
   const { requestPermission } = useUIStore();
-  const lastCount = React.useRef(0);
+  const lastCount = useRef(0);
 
-  // Handle Ctrl+C gracefully using useInput (best practice from Context7)
+  // Handle Ctrl+C gracefully using useInput
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
-      log("User pressed Ctrl+C, exiting gracefully...");
       exit();
     }
   });
 
-  React.useEffect(() => {
-    log("App mounted");
-    return () => log("App unmounting");
-  }, [log]);
+  // Cleanup on unmount - reset stores
+  useEffect(() => {
+    return () => {
+      useChatStore.setState({ messages: [], totalTokens: 0 });
+      useActivityStore.setState({ isActive: false, statusText: "", category: "thinking", startedAt: 0 });
+      useUIStore.setState({ permissionRequest: null, modelSelectorVisible: false, versionBoxVisible: false });
+    };
+  }, []);
 
-  React.useEffect(() => {
+  // Demo effect with async/await pattern
+  useEffect(() => {
     const count = messages.length;
-    if (count > lastCount.current) {
-      const latest = messages[count - 1];
-      lastCount.current = count;
-      log(`New message received: ${latest.role}`);
+    if (count <= lastCount.current) return;
+    
+    const latest = messages[count - 1];
+    lastCount.current = count;
 
-      if (latest.role === "user") {
-        start("Thinking...", "thinking");
+    if (latest.role !== "user") return;
 
-        const timer = setTimeout(() => {
-          start("Reading project files...", "reading");
+    const abortController = new AbortController();
 
-          const readTimer = setTimeout(() => {
+    async function runDemo() {
+      start("Thinking...", "thinking");
+      
+      await delay(2000, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      start("Reading project files...", "reading");
+      
+      await delay(1000, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      stop();
+      addMessage("assistant", DEMO_RESPONSE, DEMO_DIFF);
+
+      await delay(1500, abortController.signal);
+      if (abortController.signal.aborted) return;
+
+      requestPermission({
+        command: "Write file: src/hello.ts",
+        description:
+          "The assistant wants to create a new file with the greeting function.",
+        onAllow: () => {
+          start("Writing src/hello.ts...", "writing");
+          setTimeout(() => {
             stop();
-            addMessage("assistant", DEMO_RESPONSE, DEMO_DIFF);
-
-            const permTimer = setTimeout(() => {
-              requestPermission({
-                command: "Write file: src/hello.ts",
-                description:
-                  "The assistant wants to create a new file with the greeting function.",
-                onAllow: () => {
-                  start("Writing src/hello.ts...", "writing");
-                  setTimeout(() => {
-                    stop();
-                    addMessage("assistant", FOLLOW_UP_ALLOWED);
-                  }, 1000);
-                },
-                onDeny: () => {
-                  addMessage("assistant", FOLLOW_UP_DENIED);
-                },
-              });
-            }, 1500);
-
-            return () => clearTimeout(permTimer);
+            addMessage("assistant", FOLLOW_UP_ALLOWED);
           }, 1000);
-
-          return () => clearTimeout(readTimer);
-        }, 2000);
-
-        return () => clearTimeout(timer);
-      }
+        },
+        onDeny: () => {
+          addMessage("assistant", FOLLOW_UP_DENIED);
+        },
+      });
     }
-  }, [messages, addMessage, start, stop, requestPermission, log]);
+
+    runDemo();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [messages, addMessage, start, stop, requestPermission]);
 
   return <Layout />;
+}
+
+// Helper function for delays with abort support
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+
+    const timeout = setTimeout(() => resolve(), ms);
+    
+    signal.addEventListener("abort", () => {
+      clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
 }
 
 // Error boundary for graceful error handling
@@ -141,14 +146,15 @@ function ErrorFallback({ error }: { error: Error }) {
 
 // Main render function with proper options
 export function startApp() {
-  // Clear terminal so Talos starts at the top
+  // Note: Using ANSI escape to clear terminal for cleaner UI start
+  // This is a trade-off for better UX
   process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
 
   const instance = render(<App />, {
     stdout: process.stdout,
     stdin: process.stdin,
     stderr: process.stderr,
-    exitOnCtrlC: false, // We handle Ctrl+C manually with useInput
+    exitOnCtrlC: false,
     patchConsole: false,
   });
 

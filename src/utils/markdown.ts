@@ -2,6 +2,7 @@ import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import chalk from "chalk";
 import theme from "../theme/theme.js";
+import type { MarkedExtension } from "marked";
 
 marked.use(
   markedTerminal({
@@ -21,7 +22,7 @@ marked.use(
     reflowText: false,
     tab: 2,
     showSectionPrefix: false,
-  }) as Parameters<typeof marked.use>[0]
+  }) as unknown as MarkedExtension
 );
 
 export function renderMarkdown(text: string): string {

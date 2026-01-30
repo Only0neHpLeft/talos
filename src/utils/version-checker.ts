@@ -19,10 +19,17 @@ let cachedAt: number = 0;
  */
 function fetchLatestVersionFromRedirect(): Promise<string | null> {
   return new Promise((resolve) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      resolve(null);
+    }, 10000);
+
     const req = https.get(
       `https://github.com/${REPO}/releases/latest`,
-      { headers: { "User-Agent": "talos-cli" }, method: "HEAD" },
+      { headers: { "User-Agent": "talos-cli" }, method: "HEAD", signal: controller.signal as any },
       (res: IncomingMessage) => {
+        clearTimeout(timeout);
         // GitHub redirects /latest to /tag/vX.Y.Z
         if (res.statusCode === 302 || res.statusCode === 301) {
           const location = res.headers.location;
@@ -38,9 +45,8 @@ function fetchLatestVersionFromRedirect(): Promise<string | null> {
       }
     );
 
-    req.on("error", () => resolve(null));
-    req.setTimeout(10000, () => {
-      req.destroy();
+    req.on("error", () => {
+      clearTimeout(timeout);
       resolve(null);
     });
   });

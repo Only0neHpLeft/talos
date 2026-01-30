@@ -3,10 +3,10 @@ import { test, expect, describe } from "bun:test";
 import { render } from "ink-testing-library";
 import { Box, Text, useStdout } from "ink";
 
-// Debug logging hook test
-describe("useDebugLog Hook Tests", () => {
+// Stdout hook test
+describe("useStdout Hook Tests", () => {
   test("useStdout provides write function", () => {
-    let writeFunction: Function | null = null;
+    let writeFunction: ((str: string) => void) | null = null;
     
     const TestComponent = () => {
       const { write } = useStdout();
@@ -27,7 +27,6 @@ describe("useDebugLog Hook Tests", () => {
       const { write } = useStdout();
       
       React.useEffect(() => {
-        // Write to stdout without breaking UI
         write("Test message\n");
         writeCalled = true;
       }, [write]);
@@ -37,7 +36,6 @@ describe("useDebugLog Hook Tests", () => {
 
     const { lastFrame } = render(<TestComponent />);
     
-    // UI should still render (write doesn't crash)
     expect(lastFrame()).toBeDefined();
     expect(writeCalled).toBe(true);
   });
@@ -64,7 +62,6 @@ describe("CLI Component Tests", () => {
     );
     
     const { lastFrame } = render(<TestComponent />);
-    // Padding adds empty lines/space
     expect(lastFrame()).toBeDefined();
   });
 
@@ -137,7 +134,7 @@ describe("Layout Tests", () => {
   });
 });
 
-// Test Static component for logs (Ink best practice)
+// Test Static component for logs
 describe("Static Component Tests", () => {
   test("Static renders items above dynamic content", () => {
     const { Static } = require("ink");
