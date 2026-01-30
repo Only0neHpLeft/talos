@@ -40,10 +40,12 @@ export default function VersionBox() {
 
   const isLatest =
     latestVersion && VERSION === latestVersion.replace(/^v/, "");
+  const hasUpdate =
+    latestVersion && VERSION !== latestVersion.replace(/^v/, "");
 
   return (
     <MinimalBox>
-      {/* Current version */}
+      {/* Current version - always shown */}
       <Box gap={1}>
         <Text color={theme.colors.dimText}>Current:</Text>
         <Text color={theme.colors.text} bold>
@@ -51,33 +53,29 @@ export default function VersionBox() {
         </Text>
       </Box>
 
-      {/* Latest version */}
-      <Box gap={1}>
-        <Text color={theme.colors.dimText}>Latest:</Text>
-        {isChecking ? (
-          <Text color={theme.colors.muted}>checking...</Text>
-        ) : latestVersion ? (
+      {/* Latest version - only shown when there's an update available */}
+      {hasUpdate && (
+        <Box gap={1}>
+          <Text color={theme.colors.dimText}>Latest:</Text>
           <Text color={theme.colors.text} bold>
             {latestVersion}
           </Text>
-        ) : (
-          <Text color={theme.colors.muted}>
-            {error || "unavailable"}
-          </Text>
-        )}
-      </Box>
-
-      {/* Status */}
-      {latestVersion && (
-        <Box gap={1}>
-          <Text color={theme.colors.dimText}>Status:</Text>
-          {isLatest ? (
-            <Text color={theme.colors.success}>up to date ✓</Text>
-          ) : (
-            <Text color={theme.colors.warning}>update available</Text>
-          )}
         </Box>
       )}
+
+      {/* Status - shows checking/error/up-to-date/update-available */}
+      <Box gap={1}>
+        <Text color={theme.colors.dimText}>Status:</Text>
+        {isChecking ? (
+          <Text color={theme.colors.muted}>checking...</Text>
+        ) : error ? (
+          <Text color={theme.colors.error}>{error}</Text>
+        ) : hasUpdate ? (
+          <Text color={theme.colors.warning}>update available</Text>
+        ) : (
+          <Text color={theme.colors.success}>up to date ✓</Text>
+        )}
+      </Box>
 
       {/* Actions */}
       <Box gap={2} marginTop={1}>
