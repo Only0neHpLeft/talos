@@ -5,60 +5,40 @@ set -e
 REPO="Only0neHpLeft/talos"
 
 # Box drawing characters
-TOP_LEFT="┌"
-TOP_RIGHT="┐"
-BOTTOM_LEFT="└"
-BOTTOM_RIGHT="┘"
-HORIZONTAL="─"
-VERTICAL="│"
 BULLET="•"
 ARROW="→"
 CHECK="✓"
 
-# Colors - use -e flag with echo for escape sequences
-BOLD='\e[1m'
-DIM='\e[2m'
-RESET='\e[0m'
-CYAN='\e[36m'
-GREEN='\e[32m'
-YELLOW='\e[33m'
-RED='\e[31m'
-
-# Print a box with title - fixed width
-print_box() {
-    local title="$1"
-    local width=48
-    local title_len=${#title}
-    local total_padding=$((width - title_len))
-    local left_padding=$((total_padding / 2))
-    local right_padding=$((total_padding - left_padding))
-    
-    echo -e "${CYAN}${TOP_LEFT}$(printf '%*s' $width '' | tr ' ' "${HORIZONTAL}")${TOP_RIGHT}${RESET}"
-    echo -e "${CYAN}${VERTICAL}${RESET}$(printf '%*s' $left_padding '')${BOLD}${title}${RESET}$(printf '%*s' $right_padding '')${CYAN}${VERTICAL}${RESET}"
-    echo -e "${CYAN}${BOTTOM_LEFT}$(printf '%*s' $width '' | tr ' ' "${HORIZONTAL}")${BOTTOM_RIGHT}${RESET}"
+# Print header box - manually aligned, no colors
+print_header() {
+    echo ""
+    echo "┌───────────────────────────────────────────┐"
+    echo "│              TALOS INSTALLER              │"
+    echo "└───────────────────────────────────────────┘"
+    echo ""
 }
 
 # Print a status line
 print_status() {
     local icon="$1"
     local message="$2"
-    echo -e "  ${CYAN}${icon}${RESET} ${message}"
+    echo "  ${icon} ${message}"
 }
 
 # Print error and exit
 error() {
-    echo -e "  ${RED}[ERROR]${RESET} $1" >&2
+    echo "  [ERROR] $1" >&2
     exit 1
 }
 
 # Print warning
 warn() {
-    echo -e "  ${YELLOW}[WARN]${RESET} $1"
+    echo "  [WARN] $1"
 }
 
 # Print success
 success() {
-    echo -e "  ${GREEN}${CHECK}${RESET} $1"
+    echo "  ${CHECK} $1"
 }
 
 # Detect architecture
@@ -91,9 +71,7 @@ else
 fi
 
 # Header
-echo ""
-print_box "TALOS INSTALLER"
-echo ""
+print_header
 
 # Architecture info
 print_status "$BULLET" "Target: macOS ${ARCH_NAME}"
@@ -105,7 +83,7 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     warn "${INSTALL_DIR} is not in your PATH"
     echo ""
     echo "  Add this to your shell config:"
-    echo -e "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+    echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
     echo ""
 fi
 
@@ -143,7 +121,7 @@ chmod +x "$TMP_FILE"
 print_status "$ARROW" "Installing to ${INSTALL_DIR}..."
 if [ "$USE_SUDO" = true ]; then
     echo ""
-    echo -e "  ${YELLOW}[sudo required for ${INSTALL_DIR}]${RESET}"
+    echo "  [sudo required for ${INSTALL_DIR}]"
     sudo mv "$TMP_FILE" "$INSTALL_DIR/talos"
     sudo chmod +x "$INSTALL_DIR/talos"
 else
@@ -156,18 +134,18 @@ success "Installation complete! (version ${LATEST_VERSION})"
 echo ""
 
 # Final instructions
-if command -v talos &> /dev/null; then
-    echo -e "  Run ${BOLD}talos${RESET} to start the CLI."
+if command -v talos > /dev/null 2>&1; then
+    echo "  Run talos to start the CLI."
     echo ""
-    echo -e "  ${DIM}Auto-updates are enabled. Just run 'talos' and it will"
-    echo -e "  check for updates automatically on startup.${RESET}"
+    echo "  Auto-updates are enabled. Just run 'talos' and it will"
+    echo "  check for updates automatically on startup."
 else
     warn "talos is installed but not in your PATH"
     echo ""
     echo "  Add this to your shell config (~/.zshrc or ~/.bashrc):"
-    echo -e "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+    echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
     echo ""
-    echo -e "  Then run: ${BOLD}${INSTALL_DIR}/talos${RESET}"
+    echo "  Then run: ${INSTALL_DIR}/talos"
 fi
 
 echo ""
