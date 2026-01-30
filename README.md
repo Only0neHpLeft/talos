@@ -5,8 +5,8 @@
 │                                                                 │
 │                        TALOS TERMINAL AI                        │
 │                                                                 │
-│              Terminal-based AI Chat Interface                   │
-│                      for macOS                                  │
+│                 Terminal-based AI Chat Interface                │
+│                            for macOS                            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
