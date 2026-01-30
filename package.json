@@ -15,7 +15,8 @@
     "@types/bun": "latest",
     "@types/diff": "^8.0.0",
     "@types/react": "^19.2.10",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "react-devtools-core": "^5.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
