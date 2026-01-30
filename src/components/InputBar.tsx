@@ -5,7 +5,6 @@ import { useChatStore } from "../store/chat-store.js";
 import { useUIStore } from "../store/ui-store.js";
 import { useActivityStore } from "../store/activity-store.js";
 import theme from "../theme/theme.js";
-import { VERSION } from "../version.js";
 
 interface SlashCommand {
   name: string;
@@ -17,23 +16,6 @@ const slashCommands: SlashCommand[] = [
   { name: "/version", description: "Show version info" },
 ];
 
-interface ReleaseInfo {
-  tag_name: string;
-}
-
-async function fetchLatestVersion(): Promise<string | null> {
-  try {
-    const res = await fetch("https://api.github.com/repos/Only0neHpLeft/talos/releases/latest", {
-      headers: { "User-Agent": "talos" },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as ReleaseInfo;
-    return data.tag_name;
-  } catch {
-    return null;
-  }
-}
-
 export default function InputBar() {
   const [draft, setDraft] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -41,7 +23,9 @@ export default function InputBar() {
   const permissionRequest = useUIStore((s) => s.permissionRequest);
   const isActive = useActivityStore((s) => s.isActive);
   const modelSelectorVisible = useUIStore((s) => s.modelSelectorVisible);
+  const versionBoxVisible = useUIStore((s) => s.versionBoxVisible);
   const showModelSelector = useUIStore((s) => s.showModelSelector);
+  const showVersionBox = useUIStore((s) => s.showVersionBox);
 
   const isMuted = isActive;
 
@@ -64,7 +48,7 @@ export default function InputBar() {
   }, [draft]);
 
   useInput((_input, key) => {
-    if (isMuted || permissionRequest || modelSelectorVisible) return;
+    if (isMuted || permissionRequest || modelSelectorVisible || versionBoxVisible) return;
     
     if (matches.length > 0) {
       if (key.upArrow) {
@@ -93,26 +77,8 @@ export default function InputBar() {
     }
 
     if (trimmed === "/version") {
+      showVersionBox();
       setDraft("");
-      
-      const latest = await fetchLatestVersion();
-      let content = `Current version: v${VERSION}`;
-      
-      if (latest) {
-        const current = VERSION;
-        const latestClean = latest.replace(/^v/, "");
-        
-        if (current === latestClean) {
-          content += `\n✓ You are on the latest version (${latest})`;
-        } else {
-          content += `\n⬆️  Latest version: ${latest}`;
-          content += `\n   Run \`talos\` to auto-update, or reinstall with curl.`;
-        }
-      } else {
-        content += `\n⚠️  Could not check for latest version`;
-      }
-      
-      addMessage("system", content);
       return;
     }
 
@@ -120,7 +86,7 @@ export default function InputBar() {
     setDraft("");
   };
 
-  if (permissionRequest || modelSelectorVisible) return null;
+  if (permissionRequest || modelSelectorVisible || versionBoxVisible) return null;
 
   return (
     <Box flexDirection="column" paddingX={1} paddingTop={1}>

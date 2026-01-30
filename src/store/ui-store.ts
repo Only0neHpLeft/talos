@@ -22,6 +22,10 @@ interface UIState {
   setModel: (model: ModelInfo) => void;
   showModelSelector: () => void;
   hideModelSelector: () => void;
+
+  versionBoxVisible: boolean;
+  showVersionBox: () => void;
+  hideVersionBox: () => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -49,4 +53,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setModel: (model) => set({ currentModel: model }),
   showModelSelector: () => set({ modelSelectorVisible: true }),
   hideModelSelector: () => set({ modelSelectorVisible: false }),
+
+  versionBoxVisible: false,
+  showVersionBox: () => set({ versionBoxVisible: true }),
+  hideVersionBox: () => set({ versionBoxVisible: false }),
 }));

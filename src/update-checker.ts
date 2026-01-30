@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import { createWriteStream } from "fs";
 import { access, chmod, mkdir, rename, writeFile } from "fs/promises";
 import * as https from "https";
+import { IncomingMessage } from "http";
 import { homedir } from "os";
 import { join } from "path";
 import { VERSION as CURRENT_VERSION } from "./version.js";
@@ -74,7 +75,7 @@ function fetchJson<T>(url: string): Promise<T> {
     const req = https.get(
       url,
       { headers: { "User-Agent": "talos-updater", Accept: "application/vnd.github+json" } },
-      (res) => {
+      (res: IncomingMessage) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           const location = res.headers.location;
           if (location) {
@@ -89,7 +90,7 @@ function fetchJson<T>(url: string): Promise<T> {
         }
 
         let data = "";
-        res.on("data", (chunk) => (data += chunk));
+        res.on("data", (chunk: Buffer) => (data += chunk.toString()));
         res.on("end", () => {
           try {
             resolve(JSON.parse(data));
@@ -107,44 +108,70 @@ function fetchJson<T>(url: string): Promise<T> {
   });
 }
 
-function downloadFile(url: string, dest: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const file = createWriteStream(dest);
-    const req = https.get(
-      url,
-      { headers: { "User-Agent": "talos-updater" } },
-      (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          const location = res.headers.location;
-          if (location) {
-            file.close();
-            downloadFile(location, dest).then(resolve).catch(reject);
-            return;
-          }
-        }
-
-        if (res.statusCode !== 200) {
-          file.close();
-          reject(new Error(`Download failed: ${res.statusCode}`));
-          return;
-        }
-
-        res.pipe(file);
-        file.on("finish", () => {
-          file.close();
-          resolve();
-        });
-      }
-    );
-    req.on("error", (err) => {
-      file.close();
-      reject(err);
+async function downloadFile(url: string, dest: string, onProgress?: (percent: number) => void): Promise<void> {
+  // Try using curl first (much faster)
+  try {
+    const curl = spawn("curl", [
+      "-fsSL",           // fail, silent, follow redirects
+      "--progress-bar",  // show progress
+      "-o", dest,        // output file
+      url
+    ], {
+      stdio: onProgress ? "pipe" : "ignore",
     });
-    req.setTimeout(60000, () => {
-      req.destroy();
-      file.close();
-      reject(new Error("Download timeout"));
+    
+    await new Promise<void>((resolve, reject) => {
+      curl.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`curl failed with code ${code}`));
+      });
     });
+    return;
+  } catch {
+    // Fall back to fetch API
+  }
+
+  // Use Bun's fetch API (faster than Node.js https)
+  const response = await fetch(url, {
+    headers: { "User-Agent": "talos-updater" },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Download failed: ${response.status}`);
+  }
+
+  const contentLength = parseInt(response.headers.get("content-length") || "0");
+  const reader = response.body?.getReader();
+  
+  if (!reader) {
+    throw new Error("No response body");
+  }
+
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    chunks.push(value);
+    received += value.length;
+    
+    if (onProgress && contentLength > 0) {
+      onProgress(Math.round((received / contentLength) * 100));
+    }
+  }
+
+  // Write file
+  const file = createWriteStream(dest);
+  for (const chunk of chunks) {
+    file.write(chunk);
+  }
+  file.end();
+  
+  await new Promise<void>((resolve, reject) => {
+    file.on("finish", resolve);
+    file.on("error", reject);
   });
 }
 
@@ -194,17 +221,31 @@ async function downloadUpdateInBackground(latestVersion: string, assetUrl: strin
   
   // Skip if already downloaded
   if (await fileExists(downloadPath)) {
-    console.log(`📦 Update v${versionClean} already downloaded. Will install on next startup.`);
+    console.log(`📦 Update v${versionClean} ready. Install on next startup.`);
     return;
   }
   
+  console.log(`📥 Downloading v${versionClean}...`);
+  const startTime = Date.now();
+  
   try {
-    await downloadFile(assetUrl, downloadPath);
+    // Show progress if not using curl (curl shows its own progress)
+    let lastPercent = 0;
+    await downloadFile(assetUrl, downloadPath, (percent) => {
+      if (percent !== lastPercent && percent % 10 === 0) {
+        process.stdout.write(`\r📥 ${percent}%`);
+        lastPercent = percent;
+      }
+    });
+    
+    if (lastPercent > 0) process.stdout.write("\n");
+    
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     await chmod(downloadPath, 0o755);
     await setPendingVersion(versionClean);
-    console.log(`📦 Update v${versionClean} downloaded. Will install on next startup.`);
+    console.log(`📦 Update v${versionClean} ready (${elapsed}s). Install on next startup.`);
   } catch (err) {
-    console.error("Failed to download update:", (err as Error).message);
+    console.error("\n❌ Failed to download update:", (err as Error).message);
   }
 }
 

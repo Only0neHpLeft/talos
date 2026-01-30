@@ -6,6 +6,7 @@ import WelcomeScreen from "./WelcomeScreen.js";
 import Throbber from "./Throbber.js";
 import PermissionGate from "./PermissionGate.js";
 import ModelSelector from "./ModelSelector.js";
+import VersionBox from "./VersionBox.js";
 import InputBar from "./InputBar.js";
 
 export default function Layout() {
@@ -17,6 +18,7 @@ export default function Layout() {
       <PermissionGate />
       <InputBar />
       <ModelSelector />
+      <VersionBox />
       <StatusBar />
     </Box>
   );

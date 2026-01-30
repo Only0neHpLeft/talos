@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text, useInput } from "ink";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
+import MinimalBox from "./MinimalBox.js";
 
 export default function PermissionGate() {
   const { permissionRequest, resolvePermission } = useUIStore();
@@ -15,26 +16,23 @@ export default function PermissionGate() {
   if (!permissionRequest) return null;
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={theme.colors.border}
-      paddingX={1}
-      paddingY={0}
-      marginX={1}
-    >
-      {/* Title row */}
+    <MinimalBox>
+      {/* Title */}
       <Box gap={1}>
         <Text color={theme.colors.muted}>{theme.glyphs.warning}</Text>
         <Text color={theme.colors.dimText}>Allow</Text>
+      </Box>
+
+      {/* Command on new line */}
+      <Box>
         <Text color={theme.colors.text} bold>
           {permissionRequest.command}
         </Text>
         <Text color={theme.colors.dimText}>?</Text>
       </Box>
 
-      {/* Description */}
-      <Box marginTop={0}>
+      {/* Description on new line */}
+      <Box>
         <Text color={theme.colors.muted}>
           {permissionRequest.description}
         </Text>
@@ -49,6 +47,6 @@ export default function PermissionGate() {
           [<Text color={theme.colors.error} bold>N</Text>] no
         </Text>
       </Box>
-    </Box>
+    </MinimalBox>
   );
 }

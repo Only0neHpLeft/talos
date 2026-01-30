@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { useUIStore, availableModels } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
+import MinimalBox from "./MinimalBox.js";
 
 export default function ModelSelector() {
   const { currentModel, setModel, hideModelSelector, modelSelectorVisible } =
@@ -34,14 +35,7 @@ export default function ModelSelector() {
   if (!modelSelectorVisible) return null;
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={theme.colors.border}
-      paddingX={1}
-      paddingY={0}
-      marginX={1}
-    >
+    <MinimalBox>
       {/* Models list */}
       <Box flexDirection="column">
         {availableModels.map((model, idx) => {
@@ -76,6 +70,6 @@ export default function ModelSelector() {
           [<Text bold>esc</Text>] cancel
         </Text>
       </Box>
-    </Box>
+    </MinimalBox>
   );
 }
