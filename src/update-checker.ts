@@ -1,37 +1,12 @@
-import { spawn } from "child_process";
-import { access, chmod, mkdir, rename, writeFile } from "fs/promises";
+import { spawn, execSync } from "child_process";
+import { access, rename, chmod, mkdir } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
 import { VERSION as CURRENT_VERSION } from "./version.js";
-import {
-  fetchLatestVersion,
-  fetchReleaseInfo,
-  getDownloadUrl,
-  isVersionCached,
-} from "./utils/version-checker.js";
 
-// Get config directory for talos
-function getConfigDir(): string {
-  return join(homedir(), ".config", "talos");
-}
+const REPO = "Only0neHpLeft/talos";
 
-async function ensureConfigDir(): Promise<void> {
-  try {
-    await mkdir(getConfigDir(), { recursive: true });
-  } catch {
-    // ignore
-  }
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
+// Get the binary name based on platform and arch
 function getBinaryName(): string | null {
   const arch = process.arch;
   const platform = process.platform;
@@ -44,6 +19,7 @@ function getBinaryName(): string | null {
   return null;
 }
 
+// Get the path to the current executable
 function getExecPath(): string | null {
   const execPath = process.argv[0];
 
@@ -66,6 +42,7 @@ function getExecPath(): string | null {
   return null;
 }
 
+// Compare two versions (handles v prefix)
 function compareVersions(v1: string, v2: string): number {
   const parts1 = v1.replace(/^v/, "").split(".").map(Number);
   const parts2 = v2.replace(/^v/, "").split(".").map(Number);
@@ -79,165 +56,79 @@ function compareVersions(v1: string, v2: string): number {
   return 0;
 }
 
-// Check if we have a pending update downloaded
-async function getPendingVersion(): Promise<string | null> {
-  const pendingFile = join(getConfigDir(), "pending-version");
+// Check if a file exists
+async function fileExists(path: string): Promise<boolean> {
   try {
-    const content = await Bun.file(pendingFile).text();
-    return content.trim() || null;
+    await access(path);
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 
-async function setPendingVersion(version: string): Promise<void> {
-  await ensureConfigDir();
-  await writeFile(join(getConfigDir(), "pending-version"), version);
+// Get temp directory
+function getTempDir(): string {
+  return join(homedir(), ".config", "talos");
 }
 
-async function clearPendingVersion(): Promise<void> {
+async function ensureTempDir(): Promise<void> {
   try {
-    await Bun.file(join(getConfigDir(), "pending-version")).delete();
+    await mkdir(getTempDir(), { recursive: true });
   } catch {
     // ignore
   }
 }
 
-// Install pending update if exists
-async function installPendingUpdate(execPath: string): Promise<boolean> {
-  const pendingVersion = await getPendingVersion();
-  if (!pendingVersion) return false;
-
-  // Check if pending version is actually newer
-  if (compareVersions(pendingVersion, CURRENT_VERSION) <= 0) {
-    await clearPendingVersion();
-    // Also clean up the file if it exists
-    const downloadPath = join(
-      getConfigDir(),
-      `talos-${pendingVersion}.new`
+// Fetch latest version from GitHub redirect (100% reliable, no rate limits)
+async function fetchLatestVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const https = require("https");
+    
+    const req = https.get(
+      `https://github.com/${REPO}/releases/latest`,
+      { method: "HEAD" },
+      (res: any) => {
+        // GitHub redirects /latest to /tag/vX.Y.Z
+        if (res.statusCode === 302 || res.statusCode === 301) {
+          const location = res.headers.location;
+          if (location) {
+            const match = location.match(/\/tag\/(v[\d.]+)$/);
+            if (match) {
+              resolve(match[1]);
+              return;
+            }
+          }
+        }
+        resolve(null);
+      }
     );
-    try {
-      await Bun.file(downloadPath).delete();
-    } catch {
-      // ignore
-    }
-    return false;
-  }
 
-  const downloadPath = join(
-    getConfigDir(),
-    `talos-${pendingVersion}.new`
-  );
-  if (!(await fileExists(downloadPath))) {
-    await clearPendingVersion();
-    return false;
-  }
-
-  console.log(`📦 Installing update v${pendingVersion}...`);
-
-  try {
-    await rename(downloadPath, execPath);
-    await clearPendingVersion();
-    console.log(`✅ Updated to v${pendingVersion}! Restarting...\n`);
-
-    // Relaunch - don't inherit stdio to avoid input conflicts
-    const child = spawn(execPath, process.argv.slice(1), {
-      detached: true,
-      stdio: "ignore",
+    req.on("error", () => resolve(null));
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve(null);
     });
-    child.unref();
+  });
+}
 
-    // Exit immediately so the new process can take over
-    process.exit(0);
-  } catch (err) {
-    // Try with sudo
-    console.log("");
-    console.log(
-      "┌─────────────────────────────────────────────────────────┐"
-    );
-    console.log(
-      "│  🔑  Administrator password needed to install update    │"
-    );
-    console.log(
-      "└─────────────────────────────────────────────────────────┘"
-    );
-    console.log("");
-
-    const sudoMv = spawn("sudo", ["mv", downloadPath, execPath], {
+// Download file using curl
+async function downloadWithCurl(url: string, outputPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const curl = spawn("curl", ["-fsSL", "-o", outputPath, url], {
       stdio: "inherit",
     });
 
-    try {
-      await new Promise<void>((resolve, reject) => {
-        sudoMv.on("close", (code) => {
-          if (code === 0) resolve();
-          else reject(new Error("sudo mv failed"));
-        });
-      });
-
-      await clearPendingVersion();
-      spawn("sudo", ["chmod", "+x", execPath]).unref();
-
-      console.log(`✅ Updated to v${pendingVersion}! Restarting...\n`);
-      const child = spawn(execPath, process.argv.slice(1), {
-        detached: true,
-        stdio: "ignore",
-      });
-      child.unref();
-
-      // Exit immediately
-      process.exit(0);
-    } catch {
-      return false;
-    }
-  }
-}
-
-// Spawn a detached background download process
-function spawnBackgroundDownload(
-  version: string,
-  url: string,
-  downloadPath: string
-): void {
-  const configDir = getConfigDir();
-
-  // Create a simple script that downloads the file
-  const script = `
-    const { spawn } = require('child_process');
-    const { writeFileSync } = require('fs');
-    
-    const version = "${version}";
-    const url = "${url}";
-    const downloadPath = "${downloadPath}";
-    const pendingFile = "${join(configDir, "pending-version")}";
-    
-    console.log("📥 Downloading v" + version + " in background...");
-    
-    const curl = spawn("curl", ["-fsSL", "-o", downloadPath, url], {
-      stdio: "ignore",
-      detached: true,
-    });
-    
     curl.on("close", (code) => {
-      if (code === 0) {
-        require('fs').chmodSync(downloadPath, 0o755);
-        writeFileSync(pendingFile, version);
-        console.log("📦 Update v" + version + " ready. Install on next startup.");
-      } else {
-        console.error("❌ Background download failed");
-      }
+      resolve(code === 0);
     });
-  `;
 
-  // Spawn node process to run the download script detached
-  const child = spawn(process.execPath, ["-e", script], {
-    detached: true,
-    stdio: "ignore",
+    curl.on("error", () => {
+      resolve(false);
+    });
   });
-  child.unref();
 }
 
-// Check for updates and handle them
+// Main update check and install function
 export async function checkAndUpdate(): Promise<boolean> {
   const execPath = getExecPath();
   if (!execPath) {
@@ -249,84 +140,90 @@ export async function checkAndUpdate(): Promise<boolean> {
     return false;
   }
 
-  // First, check if there's a pending update to install
-  const pendingInstalled = await installPendingUpdate(execPath);
-  if (pendingInstalled) {
-    return true;
+  console.log("🔍 Checking for updates...");
+
+  // Get latest version
+  const latestVersion = await fetchLatestVersion();
+  if (!latestVersion) {
+    console.log("⚠️  Could not check for updates");
+    return false;
   }
 
-  // Check if we already have a pending update downloaded
-  const existingPending = await getPendingVersion();
-  if (
-    existingPending &&
-    compareVersions(existingPending, CURRENT_VERSION) > 0
-  ) {
-    const downloadPath = join(
-      getConfigDir(),
-      `talos-${existingPending}.new`
-    );
-    if (await fileExists(downloadPath)) {
-      console.log(
-        `📦 Update v${existingPending} ready. Install on next startup.`
-      );
+  // Check if update is needed
+  if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
+    console.log(`✅ Already on latest version (${CURRENT_VERSION})`);
+    return false;
+  }
+
+  console.log(`⬆️  Update available: ${CURRENT_VERSION} → ${latestVersion}`);
+  console.log("");
+
+  // Construct download URL
+  const downloadUrl = `https://github.com/${REPO}/releases/download/${latestVersion}/${binaryName}`;
+  
+  await ensureTempDir();
+  const tempPath = join(getTempDir(), `talos-update-${Date.now()}.new`);
+
+  console.log(`📥 Downloading ${binaryName}...`);
+  
+  // Download the new version
+  const downloaded = await downloadWithCurl(downloadUrl, tempPath);
+  if (!downloaded) {
+    console.error("❌ Download failed");
+    // Clean up temp file
+    try {
+      await Bun.file(tempPath).delete();
+    } catch {}
+    return false;
+  }
+
+  console.log("📦 Download complete!");
+  console.log("");
+
+  // Make it executable
+  await chmod(tempPath, 0o755);
+
+  // Install the update
+  console.log("🔄 Installing update...");
+  
+  try {
+    // Try direct replacement
+    await rename(tempPath, execPath);
+    console.log("✅ Update installed!");
+  } catch (err) {
+    // Need sudo - try with password prompt
+    console.log("");
+    console.log("┌─────────────────────────────────────────────────────────┐");
+    console.log("│  🔑  Administrator password needed to install update    │");
+    console.log("└─────────────────────────────────────────────────────────┘");
+    console.log("");
+
+    try {
+      // Use sudo to move the file
+      execSync(`sudo mv "${tempPath}" "${execPath}"`, { stdio: "inherit" });
+      execSync(`sudo chmod +x "${execPath}"`, { stdio: "ignore" });
+      console.log("✅ Update installed!");
+    } catch {
+      console.error("❌ Installation failed");
+      // Clean up
+      try {
+        await Bun.file(tempPath).delete();
+      } catch {}
       return false;
     }
-    // File doesn't exist, clear the pending
-    await clearPendingVersion();
   }
 
-  // Check for new updates online
-  // This uses the shared utility that falls back to redirect method if API is rate limited
-  const release = await fetchReleaseInfo();
+  console.log("");
+  console.log(`🚀 Starting talos ${latestVersion}...`);
+  console.log("");
 
-  if (!release) {
-    // Both API and redirect methods failed - silently fail
-    return false;
-  }
+  // Relaunch the app
+  const child = spawn(execPath, process.argv.slice(1), {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
 
-  const latestVersion = release.tag_name;
-
-  if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
-    return false;
-  }
-
-  console.log(
-    `⬆️  Update available: ${CURRENT_VERSION} → ${latestVersion}`
-  );
-
-  // Find the asset - either from API or construct URL directly
-  let assetUrl: string | null = null;
-  const asset = release.assets.find((a) => a.name === binaryName);
-  if (asset) {
-    assetUrl = asset.browser_download_url;
-  } else {
-    // Construct URL directly as fallback
-    assetUrl = getDownloadUrl(latestVersion, binaryName);
-  }
-
-  if (!assetUrl) {
-    console.error("❌ Could not find update for your platform");
-    return false;
-  }
-
-  // Check if already downloading or downloaded
-  const versionClean = latestVersion.replace(/^v/, "");
-  const downloadPath = join(
-    getConfigDir(),
-    `talos-${versionClean}.new`
-  );
-
-  if (await fileExists(downloadPath)) {
-    console.log(
-      `📦 Update v${versionClean} ready. Install on next startup.`
-    );
-    return false;
-  }
-
-  // Start background download and return immediately
-  console.log(`📥 Downloading v${versionClean} in background...`);
-  spawnBackgroundDownload(versionClean, assetUrl, downloadPath);
-  console.log(`   App will continue while download completes.`);
-
-  return false; // Don't exit, continue with current version
+  // Exit this process so the new version takes over
+  process.exit(0);
 }
