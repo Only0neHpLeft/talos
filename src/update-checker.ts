@@ -188,13 +188,21 @@ async function clearPendingVersion(): Promise<void> {
 // Download update in background (doesn't install yet)
 async function downloadUpdateInBackground(latestVersion: string, assetUrl: string): Promise<void> {
   await ensureConfigDir();
-  const downloadPath = join(getConfigDir(), `talos-${latestVersion}.new`);
+  // Version without 'v' prefix for filename
+  const versionClean = latestVersion.replace(/^v/, "");
+  const downloadPath = join(getConfigDir(), `talos-${versionClean}.new`);
+  
+  // Skip if already downloaded
+  if (await fileExists(downloadPath)) {
+    console.log(`📦 Update v${versionClean} already downloaded. Will install on next startup.`);
+    return;
+  }
   
   try {
     await downloadFile(assetUrl, downloadPath);
     await chmod(downloadPath, 0o755);
-    await setPendingVersion(latestVersion);
-    console.log(`📦 Update v${latestVersion} downloaded. Will install on next startup.`);
+    await setPendingVersion(versionClean);
+    console.log(`📦 Update v${versionClean} downloaded. Will install on next startup.`);
   } catch (err) {
     console.error("Failed to download update:", (err as Error).message);
   }
@@ -211,13 +219,13 @@ async function installPendingUpdate(execPath: string): Promise<boolean> {
     return false;
   }
 
-  const downloadPath = join(getConfigDir(), `talos-v${pendingVersion}.new`);
+  const downloadPath = join(getConfigDir(), `talos-${pendingVersion}.new`);
   if (!(await fileExists(downloadPath))) {
     await clearPendingVersion();
     return false;
   }
 
-  console.log(`📦 Installing pending update v${pendingVersion}...`);
+  console.log(`📦 Installing update v${pendingVersion}...`);
 
   try {
     await rename(downloadPath, execPath);
@@ -284,7 +292,14 @@ export async function checkAndUpdate(): Promise<boolean> {
     return true;
   }
 
-  // Then check for new updates
+  // Check if we already have a pending update downloaded
+  const existingPending = await getPendingVersion();
+  if (existingPending && compareVersions(existingPending, CURRENT_VERSION) > 0) {
+    console.log(`📦 Update v${existingPending} ready. Install on next startup.`);
+    return false;
+  }
+
+  // Then check for new updates online
   console.log("🔍 Checking for updates...");
 
   try {
@@ -307,7 +322,7 @@ export async function checkAndUpdate(): Promise<boolean> {
     }
 
     // Download in background for next startup
-    await downloadUpdateInBackground(latestVersion.replace(/^v/, ""), asset.browser_download_url);
+    await downloadUpdateInBackground(latestVersion, asset.browser_download_url);
     
     return false; // Don't exit, continue with current version
   } catch (err) {
