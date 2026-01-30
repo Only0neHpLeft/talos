@@ -1,70 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import * as https from "https";
-import { IncomingMessage } from "http";
 import { useUIStore } from "../store/ui-store.js";
 import theme from "../theme/theme.js";
 import MinimalBox from "./MinimalBox.js";
 import { VERSION } from "../version.js";
-
-interface ReleaseInfo {
-  tag_name: string;
-}
-
-function fetchLatestVersion(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const req = https.get(
-      "https://api.github.com/repos/Only0neHpLeft/talos/releases/latest",
-      { headers: { "User-Agent": "talos", Accept: "application/vnd.github+json" } },
-      (res: IncomingMessage) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          const location = res.headers.location;
-          if (location) {
-            https.get(location, { headers: { "User-Agent": "talos" } }, (redirectRes) => {
-              handleResponse(redirectRes, resolve);
-            }).on("error", () => resolve(null));
-            return;
-          }
-        }
-        handleResponse(res, resolve);
-      }
-    );
-    req.on("error", () => resolve(null));
-    req.setTimeout(10000, () => {
-      req.destroy();
-      resolve(null);
-    });
-  });
-}
-
-function handleResponse(res: IncomingMessage, resolve: (value: string | null) => void): void {
-  if (res.statusCode !== 200) {
-    resolve(null);
-    return;
-  }
-
-  let data = "";
-  res.on("data", (chunk: Buffer) => (data += chunk.toString()));
-  res.on("end", () => {
-    try {
-      const json = JSON.parse(data) as ReleaseInfo;
-      resolve(json.tag_name);
-    } catch {
-      resolve(null);
-    }
-  });
-}
+import {
+  fetchLatestVersion,
+  getVersionErrorMessage,
+} from "../utils/version-checker.js";
 
 export default function VersionBox() {
   const { versionBoxVisible, hideVersionBox } = useUIStore();
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     if (versionBoxVisible) {
       setIsChecking(true);
-      fetchLatestVersion().then((version) => {
-        setLatestVersion(version);
+      setError(null);
+      fetchLatestVersion().then((result) => {
+        setLatestVersion(result.version);
+        if (result.error !== "none") {
+          setError(getVersionErrorMessage(result.error));
+        }
         setIsChecking(false);
       });
     }
@@ -79,7 +38,8 @@ export default function VersionBox() {
 
   if (!versionBoxVisible) return null;
 
-  const isLatest = latestVersion && VERSION === latestVersion.replace(/^v/, "");
+  const isLatest =
+    latestVersion && VERSION === latestVersion.replace(/^v/, "");
 
   return (
     <MinimalBox>
@@ -101,7 +61,9 @@ export default function VersionBox() {
             {latestVersion}
           </Text>
         ) : (
-          <Text color={theme.colors.muted}>unavailable</Text>
+          <Text color={theme.colors.muted}>
+            {error || "unavailable"}
+          </Text>
         )}
       </Box>
 
@@ -110,7 +72,7 @@ export default function VersionBox() {
         <Box gap={1}>
           <Text color={theme.colors.dimText}>Status:</Text>
           {isLatest ? (
-            <Text color={theme.colors.success}>up to date</Text>
+            <Text color={theme.colors.success}>up to date ✓</Text>
           ) : (
             <Text color={theme.colors.warning}>update available</Text>
           )}

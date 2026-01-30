@@ -5,52 +5,76 @@ import { IncomingMessage } from "http";
 import { homedir } from "os";
 import { join } from "path";
 import { VERSION as CURRENT_VERSION } from "./version.js";
+import { fetchLatestVersion, isVersionCached } from "./utils/version-checker.js";
 
 const REPO = "Only0neHpLeft/talos";
 
-interface ReleaseInfo {
-  tag_name: string;
-  assets: Array<{
-    name: string;
-    browser_download_url: string;
-  }>;
+interface ReleaseAsset {
+  name: string;
+  browser_download_url: string;
 }
 
-function fetchJson<T>(url: string): Promise<T> {
-  return new Promise((resolve, reject) => {
+interface ReleaseInfo {
+  tag_name: string;
+  assets: ReleaseAsset[];
+}
+
+function fetchReleaseInfo(): Promise<ReleaseInfo | null> {
+  return new Promise((resolve) => {
     const req = https.get(
-      url,
-      { headers: { "User-Agent": "talos-updater", Accept: "application/vnd.github+json" } },
+      `https://api.github.com/repos/${REPO}/releases/latest`,
+      {
+        headers: {
+          "User-Agent": "talos-updater",
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
       (res: IncomingMessage) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           const location = res.headers.location;
           if (location) {
-            fetchJson<T>(location).then(resolve).catch(reject);
+            https
+              .get(location, { headers: { "User-Agent": "talos-updater" } }, (redirectRes) => {
+                handleReleaseResponse(redirectRes, resolve);
+              })
+              .on("error", () => resolve(null));
             return;
           }
         }
-
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-
-        let data = "";
-        res.on("data", (chunk: Buffer) => (data += chunk.toString()));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(e);
-          }
-        });
+        handleReleaseResponse(res, resolve);
       }
     );
-    req.on("error", reject);
+    req.on("error", () => resolve(null));
     req.setTimeout(10000, () => {
       req.destroy();
-      reject(new Error("Request timeout"));
+      resolve(null);
     });
+  });
+}
+
+function handleReleaseResponse(
+  res: IncomingMessage,
+  resolve: (value: ReleaseInfo | null) => void
+): void {
+  if (res.statusCode === 403) {
+    // Rate limited - will be handled gracefully
+    resolve(null);
+    return;
+  }
+  if (res.statusCode !== 200) {
+    resolve(null);
+    return;
+  }
+
+  let data = "";
+  res.on("data", (chunk: Buffer) => (data += chunk.toString()));
+  res.on("end", () => {
+    try {
+      resolve(JSON.parse(data) as ReleaseInfo);
+    } catch {
+      resolve(null);
+    }
   });
 }
 
@@ -288,10 +312,25 @@ export async function checkAndUpdate(): Promise<boolean> {
   }
 
   // Check for new updates online (non-blocking)
+  // Skip if we already checked recently (cache hit)
+  if (isVersionCached()) {
+    // Use cached version info for update check
+    const cached = await fetchLatestVersion();
+    if (cached.version) {
+      const latestVersion = cached.version;
+      if (compareVersions(latestVersion, CURRENT_VERSION) <= 0) {
+        return false;
+      }
+      // Need full release info for download URL - fetch it
+    }
+  }
+
   try {
-    const release = await fetchJson<ReleaseInfo>(
-      `https://api.github.com/repos/${REPO}/releases/latest`
-    );
+    const release = await fetchReleaseInfo();
+    if (!release) {
+      // Rate limited or network error - silently fail
+      return false;
+    }
 
     const latestVersion = release.tag_name;
 
