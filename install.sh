@@ -15,67 +15,50 @@ BULLET="•"
 ARROW="→"
 CHECK="✓"
 
-# Colors (if terminal supports it)
-if [ -t 1 ]; then
-    BOLD='\033[1m'
-    DIM='\033[2m'
-    RESET='\033[0m'
-    CYAN='\033[36m'
-    GREEN='\033[32m'
-    YELLOW='\033[33m'
-    RED='\033[31m'
-else
-    BOLD=''
-    DIM=''
-    RESET=''
-    CYAN=''
-    GREEN=''
-    YELLOW=''
-    RED=''
-fi
+# Colors - use -e flag with echo for escape sequences
+BOLD='\e[1m'
+DIM='\e[2m'
+RESET='\e[0m'
+CYAN='\e[36m'
+GREEN='\e[32m'
+YELLOW='\e[33m'
+RED='\e[31m'
 
-# Print a box with title
+# Print a box with title - fixed width
 print_box() {
     local title="$1"
-    local width=50
-    local padding=$(( (width - ${#title} - 2) / 2 ))
+    local width=48
+    local title_len=${#title}
+    local total_padding=$((width - title_len))
+    local left_padding=$((total_padding / 2))
+    local right_padding=$((total_padding - left_padding))
     
-    printf "${CYAN}${TOP_LEFT}"
-    printf "%${width}s" | tr " " "${HORIZONTAL}"
-    printf "${TOP_RIGHT}${RESET}\n"
-    
-    printf "${CYAN}${VERTICAL}${RESET}"
-    printf "%${padding}s" ""
-    printf "${BOLD}%s${RESET}" "$title"
-    printf "%${padding}s" ""
-    printf "${CYAN}${VERTICAL}${RESET}\n"
-    
-    printf "${CYAN}${BOTTOM_LEFT}"
-    printf "%${width}s" | tr " " "${HORIZONTAL}"
-    printf "${BOTTOM_RIGHT}${RESET}\n"
+    echo -e "${CYAN}${TOP_LEFT}$(printf '%*s' $width '' | tr ' ' "${HORIZONTAL}")${TOP_RIGHT}${RESET}"
+    echo -e "${CYAN}${VERTICAL}${RESET}$(printf '%*s' $left_padding '')${BOLD}${title}${RESET}$(printf '%*s' $right_padding '')${CYAN}${VERTICAL}${RESET}"
+    echo -e "${CYAN}${BOTTOM_LEFT}$(printf '%*s' $width '' | tr ' ' "${HORIZONTAL}")${BOTTOM_RIGHT}${RESET}"
 }
 
 # Print a status line
 print_status() {
     local icon="$1"
     local message="$2"
-    printf "  ${CYAN}${icon}${RESET} %s\n" "$message"
+    echo -e "  ${CYAN}${icon}${RESET} ${message}"
 }
 
 # Print error and exit
 error() {
-    printf "  ${RED}[ERROR]${RESET} %s\n" "$1" >&2
+    echo -e "  ${RED}[ERROR]${RESET} $1" >&2
     exit 1
 }
 
 # Print warning
 warn() {
-    printf "  ${YELLOW}[WARN]${RESET} %s\n" "$1"
+    echo -e "  ${YELLOW}[WARN]${RESET} $1"
 }
 
 # Print success
 success() {
-    printf "  ${GREEN}${CHECK}${RESET} %s\n" "$1"
+    echo -e "  ${GREEN}${CHECK}${RESET} $1"
 }
 
 # Detect architecture
@@ -122,7 +105,7 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     warn "${INSTALL_DIR} is not in your PATH"
     echo ""
     echo "  Add this to your shell config:"
-    echo "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+    echo -e "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
     echo ""
 fi
 
@@ -160,7 +143,7 @@ chmod +x "$TMP_FILE"
 print_status "$ARROW" "Installing to ${INSTALL_DIR}..."
 if [ "$USE_SUDO" = true ]; then
     echo ""
-    echo "  ${YELLOW}[sudo required for ${INSTALL_DIR}]${RESET}"
+    echo -e "  ${YELLOW}[sudo required for ${INSTALL_DIR}]${RESET}"
     sudo mv "$TMP_FILE" "$INSTALL_DIR/talos"
     sudo chmod +x "$INSTALL_DIR/talos"
 else
@@ -174,17 +157,17 @@ echo ""
 
 # Final instructions
 if command -v talos &> /dev/null; then
-    echo "  Run ${BOLD}talos${RESET} to start the CLI."
+    echo -e "  Run ${BOLD}talos${RESET} to start the CLI."
     echo ""
-    echo "  ${DIM}Auto-updates are enabled. Just run 'talos' and it will"
-    echo "  check for updates automatically on startup.${RESET}"
+    echo -e "  ${DIM}Auto-updates are enabled. Just run 'talos' and it will"
+    echo -e "  check for updates automatically on startup.${RESET}"
 else
     warn "talos is installed but not in your PATH"
     echo ""
     echo "  Add this to your shell config (~/.zshrc or ~/.bashrc):"
-    echo "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+    echo -e "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
     echo ""
-    echo "  Then run: ${BOLD}${INSTALL_DIR}/talos${RESET}"
+    echo -e "  Then run: ${BOLD}${INSTALL_DIR}/talos${RESET}"
 fi
 
 echo ""
