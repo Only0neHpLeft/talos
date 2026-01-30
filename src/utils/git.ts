@@ -9,8 +9,7 @@ export async function getGitBranch(): Promise<string> {
       encoding: "utf-8",
     });
     return stdout.trim();
-  } catch (err) {
-    console.debug("Failed to get git branch:", err);
+  } catch {
     return "";
   }
 }
@@ -21,8 +20,7 @@ export async function getGitRoot(): Promise<string> {
       encoding: "utf-8",
     });
     return stdout.trim();
-  } catch (err) {
-    console.debug("Failed to get git root:", err);
+  } catch {
     return "";
   }
 }
