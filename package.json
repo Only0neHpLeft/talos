@@ -9,12 +9,15 @@
   "scripts": {
     "dev": "tsx src/index.tsx",
     "build": "tsc",
-    "compile": "bun build ./src/index.tsx --compile --outfile talos"
+    "compile": "bun build ./src/index.tsx --compile --outfile talos",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/diff": "^8.0.0",
     "@types/react": "^19.2.10",
+    "ink-testing-library": "^4.0.0",
     "tsx": "^4.21.0"
   },
   "peerDependencies": {

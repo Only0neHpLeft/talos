@@ -14,9 +14,16 @@ export default function StatusBar() {
   const currentModel = useUIStore((s) => s.currentModel);
 
   useEffect(() => {
-    setBranch(getGitBranch());
-    const root = getGitRoot();
-    if (root) setProject(path.basename(root));
+    // Async git operations to avoid blocking render (Ink best practice)
+    const loadGitInfo = async () => {
+      const [gitBranch, gitRoot] = await Promise.all([
+        getGitBranch(),
+        getGitRoot(),
+      ]);
+      setBranch(gitBranch);
+      if (gitRoot) setProject(path.basename(gitRoot));
+    };
+    loadGitInfo();
   }, []);
 
   return (

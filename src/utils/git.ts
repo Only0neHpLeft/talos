@@ -1,22 +1,25 @@
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
 
-export function getGitBranch(): string {
+const execAsync = promisify(exec);
+
+export async function getGitBranch(): Promise<string> {
   try {
-    return execSync("git rev-parse --abbrev-ref HEAD", {
+    const { stdout } = await execAsync("git rev-parse --abbrev-ref HEAD", {
       encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+    });
+    return stdout.trim();
   } catch {
     return "";
   }
 }
 
-export function getGitRoot(): string {
+export async function getGitRoot(): Promise<string> {
   try {
-    return execSync("git rev-parse --show-toplevel", {
+    const { stdout } = await execAsync("git rev-parse --show-toplevel", {
       encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+    });
+    return stdout.trim();
   } catch {
     return "";
   }
