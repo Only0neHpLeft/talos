@@ -36,41 +36,44 @@ export default function ModelSelector() {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.colors.accent}
-      paddingX={2}
-      paddingY={1}
+      borderStyle="single"
+      borderColor={theme.colors.border}
+      paddingX={1}
+      paddingY={0}
       marginX={1}
     >
-      <Text color={theme.colors.accent} bold>
-        Select Model
-      </Text>
-
-      <Box flexDirection="column" marginTop={1}>
+      {/* Models list */}
+      <Box flexDirection="column">
         {availableModels.map((model, idx) => {
           const isHighlighted = idx === highlightIndex;
           const isCurrent = model.id === currentModel.id;
-          const bullet = isCurrent ? "\u25CF" : "\u25CB";
 
           return (
             <Box key={model.id} gap={1}>
+              <Text color={isCurrent ? theme.colors.success : theme.colors.muted}>
+                {isCurrent ? "●" : "○"}
+              </Text>
               <Text
-                color={
-                  isHighlighted ? theme.colors.primary : theme.colors.dimText
-                }
+                color={isHighlighted ? theme.colors.text : theme.colors.dimText}
                 bold={isHighlighted}
               >
-                {bullet} {model.label}
+                {model.label}
               </Text>
-              <Text color={theme.colors.muted}>({model.provider})</Text>
+              <Text color={theme.colors.muted}>
+                {model.provider}
+              </Text>
             </Box>
           );
         })}
       </Box>
 
-      <Box marginTop={1} gap={2}>
+      {/* Actions */}
+      <Box gap={2} marginTop={1}>
         <Text color={theme.colors.dimText}>
-          {"\u2191\u2193"} navigate {"  "} Enter select {"  "} Esc cancel
+          [<Text bold>↵</Text>] select
+        </Text>
+        <Text color={theme.colors.dimText}>
+          [<Text bold>esc</Text>] cancel
         </Text>
       </Box>
     </Box>
